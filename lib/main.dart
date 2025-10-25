@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 // Importamos los nuevos archivos que creamos
-import 'screens/messages_screen.dart';
+import 'screens/chatView/messages_screen.dart';
 import 'widgets/custom_bottom_nav_bar.dart';
+
+// --- CAMBIO 1: Importamos la pantalla que creamos antes ---
+import 'screens/proveedorView/proveedor_screen.dart';
 
 // No olvides importar tu AppTheme si lo vas a usar.
 // import 'config/AppTheme.dart';
@@ -59,13 +62,9 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
     // Pantalla 2: Mensajes (nuestra nueva pantalla)
     MessagesScreen(),
-    // Pantalla 3: Perfil (por ahora un placeholder)
-    Center(
-      child: Text(
-        'Página de Perfil',
-        style: TextStyle(fontSize: 24),
-      ),
-    ),
+
+    // --- CAMBIO 2: La pestaña de Perfil (índice 3) ahora muestra tu pantalla ---
+    HomeContentScreen(),
   ];
 
   // Función que actualiza el estado cuando se presiona una pestaña
@@ -94,4 +93,3 @@ class _HomeScreenState extends State<HomeScreen> {
 
 // YA NO NECESITAMOS la clase CustomBottomNavBar aquí,
 // porque la hemos movido a su propio archivo (lib/widgets/custom_bottom_nav_bar.dart).
-

@@ -24,13 +24,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   // --- DATOS QUEMADOS PARA LOS MENSAJES DE CHAT ---
   // --- CAMBIO 3: La lista ya no es 'final' para poder añadir mensajes ---
   List<Map<String, String>> messages = [
-    {"sender": "me", "text": "¡Buenas tardes! ¿Están disponibles para el sábado?"},
+    {
+      "sender": "me",
+      "text": "¡Buenas tardes! ¿Están disponibles para el sábado?"
+    },
     {"sender": "other", "text": "Hola, ¡claro que sí! ¿A qué hora sería?"},
     {
       "sender": "me",
       "text": "Sería a las 8 PM. ¿Cuál es el costo por 2 horas?"
     },
-    {"sender": "other", "text": "Para 2 horas serían \$X. Incluye equipo de sonido."},
+    {
+      "sender": "other",
+      "text": "Para 2 horas serían \$X. Incluye equipo de sonido."
+    },
     {"sender": "me", "text": "Perfecto, ¡reservado!"},
   ];
   // --- FIN DE DATOS QUEMADOS ---
@@ -148,8 +154,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         horizontal: 16.0, vertical: 10.0),
                     decoration: BoxDecoration(
                       color: isMe
-                          ? const Color.fromARGB(255, 173, 202, 226) // Azul claro
-                          : const Color.fromARGB(255, 0, 51, 102), // Azul oscuro
+                          ? const Color.fromARGB(
+                              255, 173, 202, 226) // Azul claro
+                          : const Color.fromARGB(
+                              255, 0, 51, 102), // Azul oscuro
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
@@ -219,4 +227,3 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 }
-

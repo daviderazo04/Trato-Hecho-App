@@ -15,7 +15,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
   // Esto nos permite modificar la lista.
   List<Map<String, dynamic>> chatData = [
     {
-      "image": "https://img.vorecol.com/ia-images/1502/mazamitla-mariachi15.jpeg",
+      "image":
+          "https://img.vorecol.com/ia-images/1502/mazamitla-mariachi15.jpeg",
       "name": "Mariachi 'El Sol'",
       "message": "¡Mensaje nuevo!",
       "count": 2,
@@ -114,8 +115,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
               itemBuilder: (context, index) {
                 // Ahora usamos la lista del state
                 final item = chatData[index];
-                final bool hasUnread =
-                    (item["message"] == "¡Mensaje nuevo!");
+                final bool hasUnread = (item["message"] == "¡Mensaje nuevo!");
                 final bool hasBadge = (item["count"] > 0);
 
                 // Usamos ListTile, es perfecto para esta estructura
@@ -151,7 +151,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     radius: 28, // Tamaño del círculo
                     backgroundImage: NetworkImage(item["image"]),
                     onBackgroundImageError: (exception, stackTrace) {
-                      print('Error al cargar la imagen ${item["name"]}: $exception');
+                      print(
+                          'Error al cargar la imagen ${item["name"]}: $exception');
                     },
                     backgroundColor: Colors.grey[200], // Fondo si no carga
                   ),
@@ -186,7 +187,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
                           child: Text(
                             item["count"].toString(),
                             style: TextStyle(
-                              color: hasUnread ? Colors.white : Colors.grey[700],
+                              color:
+                                  hasUnread ? Colors.white : Colors.grey[700],
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                             ),
@@ -203,4 +205,3 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
   }
 }
-
