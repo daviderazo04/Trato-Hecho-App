@@ -1,0 +1,2 @@
+C:/Users/nicog/OneDrive/Documentos/Flutter/Trato-Hecho-App/android/app/.cxx/Debug/6c6z2k85/x86/CMakeFiles/edit_cache.dir
+C:/Users/nicog/OneDrive/Documentos/Flutter/Trato-Hecho-App/android/app/.cxx/Debug/6c6z2k85/x86/CMakeFiles/rebuild_cache.dir
