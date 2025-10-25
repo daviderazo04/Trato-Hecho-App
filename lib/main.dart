@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'screens/chatView/messages_screen.dart';
 import 'widgets/custom_bottom_nav_bar.dart';
 
-// --- CAMBIO 1: Importamos la pantalla que creamos antes ---
+// --- CAMBIO 1: Importamos las pantallas que creamos antes ---
+import 'screens/homeView/home_screen.dart';
 import 'screens/proveedorView/proveedor_screen.dart';
 
 // No olvides importar tu AppTheme si lo vas a usar.
@@ -46,14 +47,9 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0; // <-- 0 = Home, 1 = Lupa, 2 = Mensajes, 3 = Perfil
 
   // Lista de las pantallas (Widgets) que queremos mostrar
-  static const List<Widget> _widgetOptions = <Widget>[
-    // Pantalla 0: Home (por ahora un placeholder)
-    Center(
-      child: Text(
-        'Página de Home',
-        style: TextStyle(fontSize: 24),
-      ),
-    ),
+  static final List<Widget> _widgetOptions = <Widget>[
+    // Pantalla 0: Home principal
+    HomeFeedScreen(),
     // Pantalla 1: Búsqueda (por ahora un placeholder)
     Center(
       child: Text(
