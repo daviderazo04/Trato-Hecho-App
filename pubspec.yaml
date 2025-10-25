@@ -87,3 +87,9 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  fonts:
+      - family: Sora
+        fonts:
+          # Simplemente declara el archivo de la fuente variable
+          - asset: assets/fonts/Sora-VariableFont_wght.ttf
