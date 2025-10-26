@@ -113,8 +113,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
       _filteredChatData = tempFilteredList;
     });
   }
+
   // --- FIN DE FUNCIÓN DE FILTRADO ---
-@override
+  @override
   Widget build(BuildContext context) {
     // Usamos un SafeArea para evitar que el contenido se solape con la barra de estado
     return SafeArea(
@@ -135,12 +136,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
           // Barra de Búsqueda
           Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: TextField(
-            // --- CAMBIO 9: Conectamos el controlador ---
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Buscar...',
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: TextField(
+              // --- CAMBIO 9: Conectamos el controlador ---
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Buscar...',
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12.0),
@@ -156,28 +157,28 @@ class _MessagesScreenState extends State<MessagesScreen> {
           const SizedBox(height: 16.0),
 
           // --- INICIO DE LA LISTA DE MENSAJES ---
-        Expanded(
-          child: ListView.separated(
-            // --- CAMBIO 10: Usamos la longitud de la lista FILTRADA ---
-            itemCount: _filteredChatData.length,
-            separatorBuilder: (context, index) => const Divider(
-              height: 1,
+          Expanded(
+            child: ListView.separated(
+              // --- CAMBIO 10: Usamos la longitud de la lista FILTRADA ---
+              itemCount: _filteredChatData.length,
+              separatorBuilder: (context, index) => const Divider(
+                height: 1,
                 thickness: 1,
                 color: Color.fromARGB(255, 230, 230, 230),
                 indent: 16,
                 endIndent: 16,
               ),
               itemBuilder: (context, index) {
-              // --- CAMBIO 11: Obtenemos el item de la lista FILTRADA ---
-              final item = _filteredChatData[index];
+                // --- CAMBIO 11: Obtenemos el item de la lista FILTRADA ---
+                final item = _filteredChatData[index];
 
-              final bool hasUnread = (item["message"] == "¡Mensaje nuevo!");
+                final bool hasUnread = (item["message"] == "¡Mensaje nuevo!");
                 final bool hasBadge = (item["count"] > 0);
 
                 // Usamos ListTile, es perfecto para esta estructura
                 return ListTile(
-                // --- CAMBIO 3: Hacemos el onTap 'async' ---
-                onTap: () async {
+                  // --- CAMBIO 3: Hacemos el onTap 'async' ---
+                  onTap: () async {
                     // Navegamos a la pantalla de detalle y ESPERAMOS a que regrese
                     await Navigator.push(
                       context,
@@ -191,25 +192,26 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     );
 
                     // --- CAMBIO 4: Cuando el usuario regresa, actualizamos el estado ---
-                  // Verificamos si este item tenía mensajes nuevos
-                  if (hasUnread || hasBadge) {
-                    setState(() {
-                      // --- CAMBIO 12: Modificamos el 'item' directamente ---
-                      // Esto actualiza el item en la lista maestra (chatData)
-                      // porque _filteredChatData contiene referencias a los
-                      // mismos objetos en chatData.
-                      item["message"] =
-                          "Enviado"; // O "Visto", como prefieras
-                      item["count"] = 0;
-                    });
-                  }
-                },
-                // 'leading' es el widget a la izquierda (el avatar)
+                    // Verificamos si este item tenía mensajes nuevos
+                    if (hasUnread || hasBadge) {
+                      setState(() {
+                        // --- CAMBIO 12: Modificamos el 'item' directamente ---
+                        // Esto actualiza el item en la lista maestra (chatData)
+                        // porque _filteredChatData contiene referencias a los
+                        // mismos objetos en chatData.
+                        item["message"] =
+                            "Enviado"; // O "Visto", como prefieras
+                        item["count"] = 0;
+                      });
+                    }
+                  },
+                  // 'leading' es el widget a la izquierda (el avatar)
                   leading: CircleAvatar(
                     radius: 28, // Tamaño del círculo
                     backgroundImage: NetworkImage(item["image"]),
                     onBackgroundImageError: (exception, stackTrace) {
-                      print('Error al cargar la imagen ${item["name"]}: $exception');
+                      print(
+                          'Error al cargar la imagen ${item["name"]}: $exception');
                     },
                     backgroundColor: Colors.grey[200], // Fondo si no carga
                   ),
@@ -244,7 +246,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
                           child: Text(
                             item["count"].toString(),
                             style: TextStyle(
-                              color: hasUnread ? Colors.white : Colors.grey[700],
+                              color:
+                                  hasUnread ? Colors.white : Colors.grey[700],
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                             ),
@@ -261,5 +264,3 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
   }
 }
-
-

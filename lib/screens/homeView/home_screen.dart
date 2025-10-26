@@ -11,22 +11,31 @@ class HomeFeedScreen extends StatelessWidget {
 
   final List<_ServiceCardData> _services = const [
     _ServiceCardData(
-      imageUrl:
-          'https://img.vorecol.com/ia-images/1502/mazamitla-mariachi15.jpeg',
+      imageUrls: [
+        'https://img.vorecol.com/ia-images/1502/mazamitla-mariachi15.jpeg',
+        'https://img.vorecol.com/ia-images/1502/mariachi-familia.jpg',
+        'https://img.vorecol.com/ia-images/1502/mariachi-noche.jpg',
+      ],
       title: "Mariachi \"El Sol\"",
       provider: 'Gustavo',
       rating: 4.6,
     ),
     _ServiceCardData(
-      imageUrl:
-          'https://boomerangfiesta.com/wp-content/uploads/2023/01/photo_2023-01-06_07-12-01-225x300.jpg',
+      imageUrls: [
+        'https://boomerangfiesta.com/wp-content/uploads/2023/01/photo_2023-01-06_07-12-01-225x300.jpg',
+        'https://boomerangfiesta.com/wp-content/uploads/2022/06/animacion-infantil-ecuador.jpg',
+        'https://boomerangfiesta.com/wp-content/uploads/2022/07/animacion-pjs.jpg',
+      ],
       title: 'Animadores Infantiles',
       provider: 'Blinky',
       rating: 4.2,
     ),
     _ServiceCardData(
-      imageUrl:
-          'https://showsparafiestas.org/wp-content/uploads/2012/05/salasa-778.jpg?w=564',
+      imageUrls: [
+        'https://showsparafiestas.org/wp-content/uploads/2012/05/salasa-778.jpg?w=564',
+        'https://showsparafiestas.org/wp-content/uploads/2012/05/salsa-show.jpg',
+        'https://showsparafiestas.org/wp-content/uploads/2012/05/ballet-folklorico.jpg',
+      ],
       title: 'Bailarines Profesionales',
       provider: 'Ballet Folklórico',
       rating: 4.7,
@@ -36,7 +45,7 @@ class HomeFeedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final Color accentColor = const Color(0xFFE53935);
+    final Color accentColor = const Color.fromRGBO(59, 96, 125, 1);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -84,7 +93,10 @@ class _CategoryHeader extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _ArrowButton(icon: Icons.arrow_back_ios_new, color: accentColor),
+        _ArrowButton(
+          icon: Icons.arrow_back_ios_new,
+          color: accentColor,
+        ),
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -167,7 +179,7 @@ class _CategoryItem extends StatelessWidget {
   }
 }
 
-class _ServiceCard extends StatelessWidget {
+class _ServiceCard extends StatefulWidget {
   const _ServiceCard({
     required this.data,
     required this.accentColor,
@@ -179,7 +191,52 @@ class _ServiceCard extends StatelessWidget {
   final TextTheme textTheme;
 
   @override
+  State<_ServiceCard> createState() => _ServiceCardState();
+}
+
+class _ServiceCardState extends State<_ServiceCard> {
+  late final PageController _pageController;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _handlePageChanged(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  void _goPrevious() {
+    if (_currentIndex == 0) return;
+    _pageController.previousPage(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _goNext() {
+    if (_currentIndex >= widget.data.imageUrls.length - 1) return;
+    _pageController.nextPage(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final hasImages = widget.data.imageUrls.isNotEmpty;
+    final imageCount = hasImages ? widget.data.imageUrls.length : 1;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -201,9 +258,26 @@ class _ServiceCard extends StatelessWidget {
               children: [
                 AspectRatio(
                   aspectRatio: 4 / 3,
-                  child: Image.network(
-                    data.imageUrl,
-                    fit: BoxFit.cover,
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: imageCount,
+                    onPageChanged: _handlePageChanged,
+                    itemBuilder: (context, index) {
+                      if (!hasImages) {
+                        return Container(
+                          color: Colors.grey.shade200,
+                          child: const Icon(
+                            Icons.image_not_supported,
+                            size: 48,
+                            color: Colors.black38,
+                          ),
+                        );
+                      }
+                      return Image.network(
+                        widget.data.imageUrls[index],
+                        fit: BoxFit.cover,
+                      );
+                    },
                   ),
                 ),
                 Positioned.fill(
@@ -215,6 +289,8 @@ class _ServiceCard extends StatelessWidget {
                         icon: Icons.arrow_back_ios_new,
                         background: Colors.black54,
                         iconColor: Colors.white,
+                        onTap: _goPrevious,
+                        enabled: _currentIndex > 0,
                       ),
                     ),
                   ),
@@ -228,6 +304,8 @@ class _ServiceCard extends StatelessWidget {
                         icon: Icons.arrow_forward_ios,
                         background: Colors.black54,
                         iconColor: Colors.white,
+                        onTap: _goNext,
+                        enabled: _currentIndex < imageCount - 1,
                       ),
                     ),
                   ),
@@ -238,20 +316,23 @@ class _ServiceCard extends StatelessWidget {
                   right: 0,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      3,
-                      (index) => Container(
-                        width: index == 1 ? 12 : 8,
-                        height: 8,
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        decoration: BoxDecoration(
-                          color: index == 1
-                              ? Colors.white
-                              : Colors.white.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
+                    children: hasImages
+                        ? List.generate(
+                            imageCount,
+                            (index) => AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: index == _currentIndex ? 12 : 8,
+                              height: 8,
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              decoration: BoxDecoration(
+                                color: index == _currentIndex
+                                    ? Colors.white
+                                    : Colors.white.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          )
+                        : const <Widget>[],
                   ),
                 ),
               ],
@@ -260,8 +341,8 @@ class _ServiceCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
-              data.title,
-              style: textTheme.titleMedium?.copyWith(
+              widget.data.title,
+              style: widget.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -271,20 +352,21 @@ class _ServiceCard extends StatelessWidget {
             child: Row(
               children: [
                 Text(
-                  data.provider,
-                  style: textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
+                  widget.data.provider,
+                  style: widget.textTheme.bodyMedium
+                      ?.copyWith(color: Colors.grey[700]),
                 ),
                 const Spacer(),
                 Text(
-                  data.rating.toStringAsFixed(1),
-                  style: textTheme.bodyMedium?.copyWith(
+                  widget.data.rating.toStringAsFixed(1),
+                  style: widget.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(
+                Icon(
                   Icons.star,
-                  color: Colors.amber,
+                  color: widget.accentColor,
                   size: 20,
                 ),
               ],
@@ -301,32 +383,47 @@ class _ImageArrow extends StatelessWidget {
     required this.icon,
     required this.background,
     required this.iconColor,
+    this.onTap,
+    this.enabled = true,
   });
 
   final IconData icon;
   final Color background;
   final Color iconColor;
+  final VoidCallback? onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: background,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+    final Color effectiveBackground =
+        enabled ? background : background.withOpacity(0.35);
+    final Color effectiveIconColor =
+        enabled ? iconColor : iconColor.withOpacity(0.5);
+
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.6,
+        child: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: effectiveBackground,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Icon(
-        icon,
-        color: iconColor,
-        size: 16,
+          child: Icon(
+            icon,
+            color: effectiveIconColor,
+            size: 16,
+          ),
+        ),
       ),
     );
   }
@@ -340,7 +437,10 @@ class _SearchField extends StatelessWidget {
     return TextField(
       decoration: InputDecoration(
         hintText: 'Buscar servicios...',
-        prefixIcon: const Icon(Icons.search),
+        prefixIcon: const Icon(
+          Icons.search,
+          color: Color.fromARGB(255, 26, 188, 156),
+        ),
         filled: true,
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -373,13 +473,13 @@ class _CategoryItemData {
 
 class _ServiceCardData {
   const _ServiceCardData({
-    required this.imageUrl,
+    required this.imageUrls,
     required this.title,
     required this.provider,
     required this.rating,
   });
 
-  final String imageUrl;
+  final List<String> imageUrls;
   final String title;
   final String provider;
   final double rating;
