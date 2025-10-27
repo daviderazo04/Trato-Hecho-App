@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../config/appColors.dart';
 
 ///
 /// Este es nuestro Widget reutilizable para la barra de navegación.
@@ -23,7 +24,7 @@ class CustomBottomNavBar extends StatelessWidget {
         height: 70,
         margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         decoration: BoxDecoration(
-          color: const Color.fromRGBO(59, 96, 125, 1),
+          color: AppColors.secondary,
           borderRadius: BorderRadius.circular(10.0),
           border: Border.all(
             color: const Color.fromRGBO(59, 96, 125, 1),
@@ -55,7 +56,8 @@ class CustomBottomNavBar extends StatelessWidget {
             IconButton(
               icon: Icon(currentIndex == 1
                   ? Icons.search
-                  : Icons.search_outlined), // Asumiendo que 'search_outlined' existe o usa 'search'
+                  : Icons
+                      .search_outlined), // Asumiendo que 'search_outlined' existe o usa 'search'
               color: const Color.fromARGB(255, 255, 255, 255),
               iconSize: 32.0,
               padding: EdgeInsets.zero,
@@ -73,9 +75,8 @@ class CustomBottomNavBar extends StatelessWidget {
             ),
             // Icono de Perfil
             IconButton(
-              icon: Icon(currentIndex == 3
-                  ? Icons.person
-                  : Icons.person_outline),
+              icon:
+                  Icon(currentIndex == 3 ? Icons.person : Icons.person_outline),
               color: const Color.fromARGB(255, 255, 255, 255),
               iconSize: 32.0,
               padding: EdgeInsets.zero,

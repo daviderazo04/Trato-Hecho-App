@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'screens/chatView/messages_screen.dart';
 import 'widgets/custom_bottom_nav_bar.dart';
 
-// --- CAMBIO 1: Importamos las pantallas que creamos antes ---
+// Importamos las pantallas que creamos antes
 import 'screens/homeView/home_screen.dart';
 import 'screens/proveedorView/proveedor_screen.dart';
+
+// --- CAMBIO 1: Importamos tu nueva vista de usuario ---
+import 'screens/usuarioView/usuarioView.dart';
 
 // No olvides importar tu AppTheme si lo vas a usar.
 // import 'config/AppTheme.dart';
@@ -28,30 +31,29 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Sora',
       ),
       debugShowCheckedModeBanner: false,
-      home:
-          const HomeScreen(), // HomeScreen ahora es nuestro controlador principal
+      home: const MainNavigator(), // Renombrado de HomeScreen para claridad
     );
   }
 }
 
-// CAMBIO: Convertimos HomeScreen a StatefulWidget para manejar el estado
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+// Renombrado de HomeScreen a MainNavigator para que sea más claro
+class MainNavigator extends StatefulWidget {
+  const MainNavigator({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<MainNavigator> createState() => _MainNavigatorState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _MainNavigatorState extends State<MainNavigator> {
   // Variable para guardar el índice de la pestaña seleccionada
   int _selectedIndex = 0; // <-- 0 = Home, 1 = Lupa, 2 = Mensajes, 3 = Perfil
 
   // Lista de las pantallas (Widgets) que queremos mostrar
   static final List<Widget> _widgetOptions = <Widget>[
     // Pantalla 0: Home principal
-    HomeFeedScreen(),
+    HomeFeedScreen(), // Asumiendo que esta es tu vista principal de "home"
     // Pantalla 1: Búsqueda (por ahora un placeholder)
-    Center(
+    const Center(
       child: Text(
         'Página de Búsqueda',
         style: TextStyle(fontSize: 24),
@@ -61,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
     MessagesScreen(),
 
     // --- CAMBIO 2: La pestaña de Perfil (índice 3) ahora muestra tu pantalla ---
-    HomeContentScreen(),
+    const UsuarioView(),
   ];
 
   // Función que actualiza el estado cuando se presiona una pestaña
@@ -76,10 +78,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       // Ya no hay AppBar aquí, cada pantalla puede tener la suya si la necesita
 
-      // CAMBIO: El body ahora es la pantalla seleccionada de nuestra lista
-      body: _widgetOptions.elementAt(_selectedIndex),
+      // El body ahora es la pantalla seleccionada de nuestra lista
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _widgetOptions,
+      ),
 
-      // CAMBIO: Usamos nuestro widget CustomBottomNavBar y le pasamos el estado
+      // Usamos nuestro widget CustomBottomNavBar y le pasamos el estado
+      // Asumiendo que tu custom_bottom_nav_bar usa 'currentIndex' y 'onTap'
+      // Si usa 'selectedIndex' y 'onItemTapped', cambia los nombres aquí.
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -90,3 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
 // YA NO NECESITAMOS la clase CustomBottomNavBar aquí,
 // porque la hemos movido a su propio archivo (lib/widgets/custom_bottom_nav_bar.dart).
+
+// NOTA: Tu 'HomeFeedScreen' (o como se llame tu pantalla de home)
+// y 'HomeContentScreen' deben estar definidos en sus respectivos archivos.
+// Aquí asumí que 'HomeFeedScreen' es la pantalla de índice 0.
