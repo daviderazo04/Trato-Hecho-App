@@ -87,8 +87,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                           child: Container(
                             padding: const EdgeInsets.all(3),
                             decoration: BoxDecoration(
-                              color:
-                                  AppColors.secondary, // Color de la insignia
+                              color: AppColors.primary, // Color de la insignia
                               shape: BoxShape.circle,
                               border: Border.all(color: Colors.white, width: 2),
                             ),
@@ -197,7 +196,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                           Text(
                             'Mis Servicios',
                             style: TextStyle(
-                              color: AppColors.textPrimary,
+                              color: AppColors.primary,
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
@@ -206,8 +205,11 @@ class _UsuarioViewState extends State<UsuarioView> {
                           IconButton(
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            icon: Icon(Icons.add,
-                                color: AppColors.textPrimary, size: 28),
+                            icon: Icon(
+                              Icons.add,
+                              color: AppColors.primary,
+                              size: 28,
+                            ),
                             onPressed: () {
                               Navigator.push(
                                 context,
@@ -226,8 +228,11 @@ class _UsuarioViewState extends State<UsuarioView> {
                           IconButton(
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            icon: Icon(Icons.arrow_back_ios,
-                                color: AppColors.textPrimary, size: 20),
+                            icon: Icon(
+                              Icons.arrow_back_ios,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
                             onPressed: () {
                               _scroll(-scrollAmount);
                             },
@@ -236,8 +241,11 @@ class _UsuarioViewState extends State<UsuarioView> {
                           IconButton(
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            icon: Icon(Icons.arrow_forward_ios,
-                                color: AppColors.textPrimary, size: 20),
+                            icon: Icon(
+                              Icons.arrow_forward_ios,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
                             onPressed: () {
                               _scroll(scrollAmount);
                             },
@@ -356,7 +364,7 @@ class _UsuarioViewState extends State<UsuarioView> {
         Text(
           count,
           style: TextStyle(
-            color: AppColors.textPrimary,
+            color: AppColors.primary,
             fontSize: 18, // Tamaño de fuente más grande para el número
             fontWeight: FontWeight.bold,
           ),
@@ -391,7 +399,7 @@ class _UsuarioViewState extends State<UsuarioView> {
             children: [
               Icon(
                 icon,
-                color: AppColors.textPrimary,
+                color: AppColors.primary,
                 size: 24,
               ),
               const SizedBox(width: 16),
@@ -406,7 +414,7 @@ class _UsuarioViewState extends State<UsuarioView> {
               ),
               Icon(
                 Icons.arrow_forward_ios,
-                color: AppColors.textSecondary,
+                color: AppColors.primary,
                 size: 16,
               ),
             ],
@@ -433,7 +441,7 @@ class _ServiceCard extends StatelessWidget {
     return Container(
       width: 140, // Ancho fijo para cada tarjeta
       decoration: BoxDecoration(
-        color: AppColors.secondary, // Fondo de la tarjeta (azul pizarra)
+        color: AppColors.primary, // Fondo de la tarjeta (azul profundo)
         borderRadius: BorderRadius.circular(15.0),
         boxShadow: [
           BoxShadow(

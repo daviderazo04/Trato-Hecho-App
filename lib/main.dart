@@ -5,7 +5,7 @@ import 'widgets/custom_bottom_nav_bar.dart';
 
 // Importamos las pantallas que creamos antes
 import 'screens/homeView/home_screen.dart';
-import 'screens/proveedorView/proveedor_screen.dart';
+import 'screens/searchView/search_screen.dart';
 
 // --- CAMBIO 1: Importamos tu nueva vista de usuario ---
 import 'screens/usuarioView/usuarioView.dart';
@@ -53,12 +53,7 @@ class _MainNavigatorState extends State<MainNavigator> {
     // Pantalla 0: Home principal
     HomeFeedScreen(), // Asumiendo que esta es tu vista principal de "home"
     // Pantalla 1: Búsqueda (por ahora un placeholder)
-    const Center(
-      child: Text(
-        'Página de Búsqueda',
-        style: TextStyle(fontSize: 24),
-      ),
-    ),
+    const SearchScreen(),
     // Pantalla 2: Mensajes (nuestra nueva pantalla)
     MessagesScreen(),
 

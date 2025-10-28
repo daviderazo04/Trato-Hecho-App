@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Colores principales
-  static const Color primary = Color(0xFF00BFFF); // Azul cian
-  static const Color secondary = Color(0xFF3B607D); // Azul profundo
+  static const Color primary = Color(0xFF3B607D); // Azul profundo
+  static const Color secondary = Color(0xFF00BFFF); // Azul cian
   static const Color accent = Color(0xFFFF6B6B); // Coral claro
 
   // Estados

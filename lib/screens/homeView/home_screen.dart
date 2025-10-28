@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
-// --- CAMBIO 1: Importamos la nueva pantalla de detalle ---
 import 'service_detail_screen.dart';
 
-class HomeFeedScreen extends StatelessWidget {
-  HomeFeedScreen({super.key});
+class HomeFeedScreen extends StatefulWidget {
+  const HomeFeedScreen({super.key});
+
+  @override
+  State<HomeFeedScreen> createState() => _HomeFeedScreenState();
+}
+
+class _HomeFeedScreenState extends State<HomeFeedScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  List<ServiceCardData> _filteredServices = [];
+  String? _selectedCategory;
 
   final List<CategoryItemData> _categories = const [
     CategoryItemData(icon: Icons.celebration, label: 'Fiestas'),
@@ -11,51 +19,89 @@ class HomeFeedScreen extends StatelessWidget {
     CategoryItemData(icon: Icons.emoji_people, label: 'Baile'),
   ];
 
-  // --- CAMBIO 2: Actualizamos la lista con los nuevos datos ---
   final List<ServiceCardData> _services = const [
     ServiceCardData(
       imageUrls: [
         'https://img.vorecol.com/ia-images/1502/mazamitla-mariachi15.jpeg',
-        'https://img.vorecol.com/ia-images/1502/mariachi-familia.jpg',
-        'https://img.vorecol.com/ia-images/1502/mariachi-noche.jpg',
+        'https://www.viajabonito.mx/wp-content/uploads/2021/07/canciones-de-mariachi-50.jpg',
+        'https://estaticosgn-cdn.deia.eus/clip/02be8ee3-8a11-440e-b360-d7e34ab0f688_16-9-discover-aspect-ratio_default_0.jpg',
       ],
       title: "Mariachi \"El Sol\"",
-      providerName: 'Gustavo David', // Nombre actualizado
+      providerName: 'Gustavo David',
       rating: 4.6,
-      category: 'Música', // Nuevo
-      price: 15, // Nuevo
-      description: // Nuevo
+      category: 'Música',
+      price: 15,
+      description:
           '¡Dale vida y luz a tu evento con Mariachi \'El Sol\'! Somos un grupo de músicos profesionales dedicados a llevar la auténtica pasión y alegría de la música ranchera directamente a tu celebración.',
     ),
     ServiceCardData(
       imageUrls: [
-        'https://boomerangfiesta.com/wp-content/uploads/2023/01/photo_2023-01-06_07-12-01-225x300.jpg',
-        'https://boomerangfiesta.com/wp-content/uploads/2022/06/animacion-infantil-ecuador.jpg',
-        'https://boomerangfiesta.com/wp-content/uploads/2022/07/animacion-pjs.jpg',
+        'https://diverticarts.com/wp-content/uploads/disneybotargas1.jpg',
+        'https://res.cloudinary.com/kosmoapp/image/upload/v1661978302/services/images/wqwzrth2f0qclaex33zh.jpg',
+        'https://miro.medium.com/0*WVoLwv7pmP4bQcFF.jpg',
       ],
-      title: 'Animadores Infantiles',
+      title: 'Botargueros Infantiles',
       providerName: 'Blinky',
       rating: 4.2,
-      category: 'Fiestas', // Nuevo
-      price: 10, // Nuevo
-      description: // Nuevo
+      category: 'Fiestas',
+      price: 10,
+      description:
           'Diversión garantizada para los más pequeños. Ofrecemos juegos, pintacaritas, globoflexia y shows temáticos para hacer de su fiesta un día inolvidable.',
     ),
     ServiceCardData(
       imageUrls: [
-        'https://showsparafiestas.org/wp-content/uploads/2012/05/salasa-778.jpg?w=564',
-        'https://showsparafiestas.org/wp-content/uploads/2012/05/salsa-show.jpg',
-        'https://showsparafiestas.org/wp-content/uploads/2012/05/ballet-folklorico.jpg',
+        'https://dnwp63qf32y8i.cloudfront.net/423d13ab39b4f6e8365d9a12e925dc2df7f96cc6',
+        'https://dnwp63qf32y8i.cloudfront.net/166253847d4029ef258157dc63cec55634f24cf5',
+        'https://images.squarespace-cdn.com/content/v1/52b4c979e4b056e96533da8d/1387755905167-TLN167ICDNT07DV6HH30/_SAR0828.jpg',
       ],
       title: 'Bailarines Profesionales',
-      providerName: 'Ballet Folklórico',
+      providerName: 'Tap Dance Ecuador',
       rating: 4.7,
-      category: 'Baile', // Nuevo
-      price: 25, // Nuevo
-      description: // Nuevo
-          'Shows de salsa, bachata y folklore. Contamos con un elenco de bailarines de primer nivel para darle un toque de elegancia y sabor a tu evento.',
+      category: 'Baile',
+      price: 25,
+      description:
+          'Shows de baile - tap dance. Perfecto para sorprender a todos con un espectáculo único.',
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredServices = _services;
+    _searchController.addListener(_filterServices);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_filterServices);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterServices() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredServices = _services.where((service) {
+        final serviceTitle = service.title.toLowerCase();
+        final matchesSearch = serviceTitle.contains(query);
+        final matchesCategory =
+            _selectedCategory == null || service.category == _selectedCategory;
+        return matchesSearch && matchesCategory;
+      }).toList();
+    });
+  }
+
+  void _selectCategory(String category) {
+    setState(() {
+      if (_selectedCategory == category) {
+        // Si la categoría ya está seleccionada, la deseleccionamos
+        _selectedCategory = null;
+      } else {
+        _selectedCategory = category;
+      }
+    });
+    _filterServices();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,25 +116,22 @@ class HomeFeedScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _SearchField(),
+              _SearchField(controller: _searchController),
               const SizedBox(height: 24),
               _CategoryHeader(
                 categories: _categories,
                 accentColor: accentColor,
+                selectedCategory: _selectedCategory,
+                onCategorySelected: _selectCategory,
               ),
               const SizedBox(height: 24),
-              // --- CAMBIO 2: Envolvemos el Padding en un GestureDetector ---
-              for (final service in _services)
+              for (final service in _filteredServices)
                 GestureDetector(
                   onTap: () {
-                    // --- CAMBIO 3: Añadimos la navegación ---
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => ServiceDetailScreen(
-                          // NOTA: Esto asume que ya actualizaste tu clase
-                          // de datos (ahora pública 'ServiceCardData')
-                          // con los campos que 'ServiceDetailScreen' necesita.
                           data: service,
                         ),
                       ),
@@ -115,10 +158,14 @@ class _CategoryHeader extends StatelessWidget {
   const _CategoryHeader({
     required this.categories,
     required this.accentColor,
+    required this.selectedCategory,
+    required this.onCategorySelected,
   });
 
   final List<CategoryItemData> categories;
   final Color accentColor;
+  final String? selectedCategory;
+  final Function(String) onCategorySelected;
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +183,8 @@ class _CategoryHeader extends StatelessWidget {
                 .map((item) => _CategoryItem(
                       data: item,
                       accentColor: accentColor,
+                      isSelected: item.label == selectedCategory,
+                      onTap: () => onCategorySelected(item.label),
                     ))
                 .toList(),
           ),
@@ -183,30 +232,46 @@ class _CategoryItem extends StatelessWidget {
   const _CategoryItem({
     required this.data,
     required this.accentColor,
+    required this.isSelected,
+    required this.onTap,
   });
 
   final CategoryItemData data;
   final Color accentColor;
+  final bool isSelected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          data.icon,
-          color: accentColor,
-          size: 36,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          data.label,
-          style: TextStyle(
-            color: accentColor,
-            fontWeight: FontWeight.w600,
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? accentColor.withOpacity(0.1)
+                  : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              data.icon,
+              color: accentColor,
+              size: 36,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            data.label,
+            style: TextStyle(
+              color: accentColor,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -384,7 +449,6 @@ class _ServiceCardState extends State<_ServiceCard> {
             child: Row(
               children: [
                 Text(
-                  // --- CAMBIO 5: Usamos el nuevo nombre del campo ---
                   widget.data.providerName,
                   style: widget.textTheme.bodyMedium
                       ?.copyWith(color: Colors.grey[700]),
@@ -463,11 +527,14 @@ class _ImageArrow extends StatelessWidget {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({super.key});
+  const _SearchField({super.key, this.controller});
+
+  final TextEditingController? controller;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      controller: controller,
       decoration: InputDecoration(
         hintText: 'Buscar servicios...',
         prefixIcon: const Icon(
@@ -527,4 +594,3 @@ class ServiceCardData {
   final int price;
   final String description;
 }
-
