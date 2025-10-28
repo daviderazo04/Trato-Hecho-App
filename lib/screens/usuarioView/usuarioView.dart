@@ -112,7 +112,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                           Row(
                             children: [
                               Text(
-                                'Pedro Enano', // Nombre
+                                'Pedro Salas', // Nombre
                                 style: TextStyle(
                                   color: AppColors.textPrimary,
                                   fontSize: 24,

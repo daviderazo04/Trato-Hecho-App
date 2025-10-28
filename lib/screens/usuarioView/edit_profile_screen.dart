@@ -23,10 +23,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     // Inicializamos los controllers con los datos del usuario
     // (Aquí podríamos cargar datos de un servicio, por ahora son de ejemplo)
-    _nombreCompletoController = TextEditingController(text: "Pedro Enano");
-    _correoController = TextEditingController(text: "pedro.enano@mail.com");
+    _nombreCompletoController = TextEditingController(text: "Pedro Salas");
+    _correoController = TextEditingController(text: "pedro.salas@mail.com");
     _telefonoController = TextEditingController(text: "0991234567");
-    _usuarioController = TextEditingController(text: "@el_enanito_69");
+    _usuarioController = TextEditingController(text: "@pedritoS81");
     _fechaController = TextEditingController(text: "1990-01-01");
   }
 
@@ -269,7 +269,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Row(
                 children: [
                   Text(
-                    'Pedro Enano',
+                    'Pedro Salas',
                     style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 24,
