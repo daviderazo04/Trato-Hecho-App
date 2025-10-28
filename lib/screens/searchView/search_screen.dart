@@ -70,7 +70,7 @@ class _SearchScreenState extends State<SearchScreen> {
     SearchHighlightData(
       title: 'Animación infantil Blinky',
       location: 'Cuenca, Ecuador',
-      priceLabel: 'Paquetes desde \$90',
+      priceLabel: 'Desde \$90',
       rating: 4.2,
       category: 'Fiestas',
       imageUrl:
@@ -79,7 +79,7 @@ class _SearchScreenState extends State<SearchScreen> {
     SearchHighlightData(
       title: 'Banquetes Gourmet',
       location: 'Guayaquil, Ecuador',
-      priceLabel: 'Menús desde \$18 p/p',
+      priceLabel: 'Desde \$18 p/p',
       rating: 4.8,
       category: 'Catering',
       imageUrl:
@@ -295,7 +295,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildSearchForm(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final InputDecorationThemeData fieldTheme =
+    final InputDecorationTheme fieldTheme =
         theme.inputDecorationTheme.copyWith(
       fillColor: AppColors.backgroundWhite,
     );
@@ -372,6 +372,7 @@ class _SearchScreenState extends State<SearchScreen> {
             _buildLabel('Presupuesto estimado'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               value: _selectedBudget,
               items: _budgetRanges
                   .map(

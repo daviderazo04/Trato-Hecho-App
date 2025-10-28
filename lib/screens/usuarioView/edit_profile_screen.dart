@@ -107,7 +107,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: _generoValue,
+                        isExpanded: true,
                         decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 10.0),
                           labelText: 'Genero', // AÑADIDO
                           labelStyle: TextStyle(
                               color: AppColors.textSecondary), // AÑADIDO
