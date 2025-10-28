@@ -1,44 +1,59 @@
 import 'package:flutter/material.dart';
+// --- CAMBIO 1: Importamos la nueva pantalla de detalle ---
+import 'service_detail_screen.dart';
 
 class HomeFeedScreen extends StatelessWidget {
   HomeFeedScreen({super.key});
 
-  final List<_CategoryItemData> _categories = const [
-    _CategoryItemData(icon: Icons.celebration, label: 'Fiestas'),
-    _CategoryItemData(icon: Icons.music_note, label: 'Música'),
-    _CategoryItemData(icon: Icons.emoji_people, label: 'Baile'),
+  final List<CategoryItemData> _categories = const [
+    CategoryItemData(icon: Icons.celebration, label: 'Fiestas'),
+    CategoryItemData(icon: Icons.music_note, label: 'Música'),
+    CategoryItemData(icon: Icons.emoji_people, label: 'Baile'),
   ];
 
-  final List<_ServiceCardData> _services = const [
-    _ServiceCardData(
+  // --- CAMBIO 2: Actualizamos la lista con los nuevos datos ---
+  final List<ServiceCardData> _services = const [
+    ServiceCardData(
       imageUrls: [
         'https://img.vorecol.com/ia-images/1502/mazamitla-mariachi15.jpeg',
         'https://img.vorecol.com/ia-images/1502/mariachi-familia.jpg',
         'https://img.vorecol.com/ia-images/1502/mariachi-noche.jpg',
       ],
       title: "Mariachi \"El Sol\"",
-      provider: 'Gustavo',
+      providerName: 'Gustavo David', // Nombre actualizado
       rating: 4.6,
+      category: 'Música', // Nuevo
+      price: 15, // Nuevo
+      description: // Nuevo
+          '¡Dale vida y luz a tu evento con Mariachi \'El Sol\'! Somos un grupo de músicos profesionales dedicados a llevar la auténtica pasión y alegría de la música ranchera directamente a tu celebración.',
     ),
-    _ServiceCardData(
+    ServiceCardData(
       imageUrls: [
         'https://boomerangfiesta.com/wp-content/uploads/2023/01/photo_2023-01-06_07-12-01-225x300.jpg',
         'https://boomerangfiesta.com/wp-content/uploads/2022/06/animacion-infantil-ecuador.jpg',
         'https://boomerangfiesta.com/wp-content/uploads/2022/07/animacion-pjs.jpg',
       ],
       title: 'Animadores Infantiles',
-      provider: 'Blinky',
+      providerName: 'Blinky',
       rating: 4.2,
+      category: 'Fiestas', // Nuevo
+      price: 10, // Nuevo
+      description: // Nuevo
+          'Diversión garantizada para los más pequeños. Ofrecemos juegos, pintacaritas, globoflexia y shows temáticos para hacer de su fiesta un día inolvidable.',
     ),
-    _ServiceCardData(
+    ServiceCardData(
       imageUrls: [
         'https://showsparafiestas.org/wp-content/uploads/2012/05/salasa-778.jpg?w=564',
         'https://showsparafiestas.org/wp-content/uploads/2012/05/salsa-show.jpg',
         'https://showsparafiestas.org/wp-content/uploads/2012/05/ballet-folklorico.jpg',
       ],
       title: 'Bailarines Profesionales',
-      provider: 'Ballet Folklórico',
+      providerName: 'Ballet Folklórico',
       rating: 4.7,
+      category: 'Baile', // Nuevo
+      price: 25, // Nuevo
+      description: // Nuevo
+          'Shows de salsa, bachata y folklore. Contamos con un elenco de bailarines de primer nivel para darle un toque de elegancia y sabor a tu evento.',
     ),
   ];
 
@@ -62,13 +77,30 @@ class HomeFeedScreen extends StatelessWidget {
                 accentColor: accentColor,
               ),
               const SizedBox(height: 24),
+              // --- CAMBIO 2: Envolvemos el Padding en un GestureDetector ---
               for (final service in _services)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: _ServiceCard(
-                    data: service,
-                    accentColor: accentColor,
-                    textTheme: theme.textTheme,
+                GestureDetector(
+                  onTap: () {
+                    // --- CAMBIO 3: Añadimos la navegación ---
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ServiceDetailScreen(
+                          // NOTA: Esto asume que ya actualizaste tu clase
+                          // de datos (ahora pública 'ServiceCardData')
+                          // con los campos que 'ServiceDetailScreen' necesita.
+                          data: service,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: _ServiceCard(
+                      data: service,
+                      accentColor: accentColor,
+                      textTheme: theme.textTheme,
+                    ),
                   ),
                 ),
             ],
@@ -85,7 +117,7 @@ class _CategoryHeader extends StatelessWidget {
     required this.accentColor,
   });
 
-  final List<_CategoryItemData> categories;
+  final List<CategoryItemData> categories;
   final Color accentColor;
 
   @override
@@ -153,7 +185,7 @@ class _CategoryItem extends StatelessWidget {
     required this.accentColor,
   });
 
-  final _CategoryItemData data;
+  final CategoryItemData data;
   final Color accentColor;
 
   @override
@@ -186,7 +218,7 @@ class _ServiceCard extends StatefulWidget {
     required this.textTheme,
   });
 
-  final _ServiceCardData data;
+  final ServiceCardData data;
   final Color accentColor;
   final TextTheme textTheme;
 
@@ -352,7 +384,8 @@ class _ServiceCardState extends State<_ServiceCard> {
             child: Row(
               children: [
                 Text(
-                  widget.data.provider,
+                  // --- CAMBIO 5: Usamos el nuevo nombre del campo ---
+                  widget.data.providerName,
                   style: widget.textTheme.bodyMedium
                       ?.copyWith(color: Colors.grey[700]),
                 ),
@@ -461,8 +494,11 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-class _CategoryItemData {
-  const _CategoryItemData({
+// --- CAMBIO 6: Clases de datos ahora PÚBLICAS (sin '_') ---
+// (Movidas al final del archivo para que 'home_screen.dart' las importe)
+
+class CategoryItemData {
+  const CategoryItemData({
     required this.icon,
     required this.label,
   });
@@ -471,16 +507,24 @@ class _CategoryItemData {
   final String label;
 }
 
-class _ServiceCardData {
-  const _ServiceCardData({
+class ServiceCardData {
+  const ServiceCardData({
     required this.imageUrls,
     required this.title,
-    required this.provider,
+    required this.providerName,
     required this.rating,
+    // --- CAMBIO 7: Nuevos campos añadidos ---
+    required this.category,
+    required this.price,
+    required this.description,
   });
 
   final List<String> imageUrls;
   final String title;
-  final String provider;
+  final String providerName; // Campo renombrado
   final double rating;
+  final String category;
+  final int price;
+  final String description;
 }
+
