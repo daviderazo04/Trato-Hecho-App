@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 // Importamos el modelo de datos que está en 'home_screen.dart'
 import 'home_screen.dart' show ServiceCardData;
+// --- CAMBIO 1: Importamos la pantalla de chat ---
+// (Asumiendo que está en 'lib/screens/chatView/chat_detail_screen.dart')
+import '../chatView/chat_detail_screen.dart';
 
 class ServiceDetailScreen extends StatefulWidget {
   final ServiceCardData data;
@@ -149,7 +152,19 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
         child: SafeArea(
           child: ElevatedButton(
             onPressed: () {
-              // Lógica para contactar
+              // --- CAMBIO 2: Lógica de navegación ---
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ChatDetailScreen(
+                    // Mapeamos los datos del servicio a la pantalla de chat
+                    chatName: widget.data.title,
+                    chatSubtitle: widget.data.providerName,
+                    rating: widget.data.rating.toStringAsFixed(1),
+                  ),
+                ),
+              );
+              // --- FIN DEL CAMBIO ---
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: contactButtonColor,
@@ -328,3 +343,4 @@ class _ImageArrow extends StatelessWidget {
     );
   }
 }
+
