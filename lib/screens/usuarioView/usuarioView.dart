@@ -54,7 +54,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                   child: IconButton(
                     icon: Icon(
                       Icons.settings,
-                      color: AppColors.textPrimary, // Cambiado a textPrimary
+                      color: AppColors.textPrimary, // Color de texto principal
                       size: 28.0,
                     ),
                     onPressed: () {
@@ -112,7 +112,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                           Row(
                             children: [
                               Text(
-                                'Pedro Enano', // Nombre según tu imagen de ejemplo
+                                'Pedro Enano', // Nombre
                                 style: TextStyle(
                                   color: AppColors.textPrimary,
                                   fontSize: 24,
@@ -144,7 +144,6 @@ class _UsuarioViewState extends State<UsuarioView> {
                         ],
                       ),
                     ),
-                    // No hay más widgets en este Row para dejar espacio para las estadísticas
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -165,7 +164,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                       width: 1,
                       color: AppColors.border,
                     ), // Divisor vertical
-                    _buildStatColumn('4', 'Años on TratoHecho'),
+                    _buildStatColumn('4', 'Años en TratoHecho'),
                   ],
                 ),
 
@@ -284,7 +283,56 @@ class _UsuarioViewState extends State<UsuarioView> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 24), // Espacio antes de las opciones
+
+                // --- 6. Divisor ---
+                Divider(
+                  color: AppColors.border,
+                  thickness: 1,
+                ),
+
+                // --- 7. SECCIÓN DE OPCIONES (NUEVO) ---
+                Column(
+                  children: [
+                    _buildOptionRow(
+                      context,
+                      icon: Icons.lock_outline,
+                      text: 'Cambiar contraseña',
+                      onTap: () {
+                        // TODO: Navegar a Cambiar Contraseña
+                      },
+                    ),
+                    Divider(
+                      color: AppColors.border,
+                      height: 1,
+                      indent: 20,
+                      endIndent: 20,
+                    ), // Divisor más sutil
+                    _buildOptionRow(
+                      context,
+                      icon: Icons.help_outline,
+                      text: 'Ayuda & Soporte',
+                      onTap: () {
+                        // TODO: Navegar a Ayuda y Soporte
+                      },
+                    ),
+                    Divider(
+                      color: AppColors.border,
+                      height: 1,
+                      indent: 20,
+                      endIndent: 20,
+                    ),
+                    _buildOptionRow(
+                      context,
+                      icon: Icons.logout,
+                      text: 'Cerrar Sesion',
+                      onTap: () {
+                        // TODO: Implementar lógica de Cerrar Sesión
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24), // Espacio al final
               ],
             ),
           ),
@@ -293,20 +341,23 @@ class _UsuarioViewState extends State<UsuarioView> {
     );
   }
 
-  // --- Nuevo Widget Helper para las columnas de estadísticas ---
+  // --- Widget Helper para las columnas de estadísticas ---
   Widget _buildStatColumn(String count, String label) {
     return Column(
+      mainAxisSize: MainAxisSize.min, // Para que la columna se ajuste
       children: [
         Text(
           count,
           style: TextStyle(
             color: AppColors.textPrimary,
-            fontSize: 15,
+            fontSize: 18, // Tamaño de fuente más grande para el número
             fontWeight: FontWeight.bold,
           ),
         ),
+        const SizedBox(height: 4),
         Text(
           label,
+          textAlign: TextAlign.center, // Centrar texto si es muy largo
           style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 14,
@@ -315,9 +366,51 @@ class _UsuarioViewState extends State<UsuarioView> {
       ],
     );
   }
+
+  // --- NUEVO Widget Helper para las filas de opciones ---
+  Widget _buildOptionRow(
+    BuildContext context, {
+    required IconData icon,
+    required String text,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: AppColors.textPrimary,
+                size: 24,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: AppColors.textSecondary,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-// --- Nuevo Widget: _ServiceCard (Componente de Tarjeta de Servicio) ---
+// --- Widget: _ServiceCard (Componente de Tarjeta de Servicio) ---
 class _ServiceCard extends StatelessWidget {
   final String imageUrl;
   final String serviceName;
@@ -374,7 +467,8 @@ class _ServiceCard extends StatelessWidget {
                 style: TextStyle(
                   color: Colors.white, // Texto blanco sobre el color primario
                   fontSize: 15,
-                  fontWeight: FontWeight.w100,
+                  fontWeight:
+                      FontWeight.w600, // Ajustado a w600 para mejor legibilidad
                 ),
               ),
             ),
