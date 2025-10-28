@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../config/appColors.dart';
 import '../../widgets/custom_bottom_nav_bar.dart';
 import '../proveedorView/new_service_screen.dart';
+import 'edit_profile_screen.dart';
 
 class UsuarioView extends StatefulWidget {
   const UsuarioView({Key? key}) : super(key: key);
@@ -122,7 +123,13 @@ class _UsuarioViewState extends State<UsuarioView> {
                               const SizedBox(width: 8),
                               GestureDetector(
                                 onTap: () {
-                                  // TODO: Implementar lógica para editar nombre
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const EditProfileScreen(),
+                                    ),
+                                  );
                                 },
                                 child: Icon(
                                   Icons.edit,
