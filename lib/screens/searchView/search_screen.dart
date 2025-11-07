@@ -136,8 +136,9 @@ class _SearchScreenState extends State<SearchScreen> {
         _mode == SearchMode.services ? 'servicios' : 'proveedores';
     final String serviceLabel =
         _serviceController.text.isEmpty ? 'todo' : _serviceController.text;
-    final String locationLabel =
-        _locationController.text.isEmpty ? 'cualquier ciudad' : _locationController.text;
+    final String locationLabel = _locationController.text.isEmpty
+        ? 'cualquier ciudad'
+        : _locationController.text;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -295,8 +296,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildSearchForm(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final InputDecorationTheme fieldTheme =
-        theme.inputDecorationTheme.copyWith(
+    final fieldTheme =
+        (theme.inputDecorationTheme as InputDecorationTheme).copyWith(
       fillColor: AppColors.backgroundWhite,
     );
 
