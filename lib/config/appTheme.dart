@@ -44,8 +44,8 @@ class AppTheme {
       // Botones outlined
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.accent,
-          side: const BorderSide(color: AppColors.accent),
+          foregroundColor: AppColors.notificacion,
+          side: const BorderSide(color: AppColors.notificacion),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),

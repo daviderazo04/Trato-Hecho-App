@@ -7,7 +7,7 @@ import 'widgets/custom_bottom_nav_bar.dart';
 import 'screens/homeView/home_screen.dart';
 import 'screens/searchView/search_screen.dart';
 
-// --- CAMBIO 1: Importamos tu nueva vista de usuario ---
+// Importamos tu nueva vista de usuario
 import 'screens/usuarioView/usuarioView.dart';
 
 // No olvides importar tu AppTheme si lo vas a usar.
@@ -46,20 +46,41 @@ class MainNavigator extends StatefulWidget {
 
 class _MainNavigatorState extends State<MainNavigator> {
   // Variable para guardar el índice de la pestaña seleccionada
-  int _selectedIndex = 0; // <-- 0 = Home, 1 = Lupa, 2 = Mensajes, 3 = Perfil
+  int _selectedIndex = 0;
 
-  // Lista de las pantallas (Widgets) que queremos mostrar
-  static final List<Widget> _widgetOptions = <Widget>[
-    // Pantalla 0: Home principal
-    HomeFeedScreen(), // Asumiendo que esta es tu vista principal de "home"
-    // Pantalla 1: Búsqueda (por ahora un placeholder)
-    const SearchScreen(),
-    // Pantalla 2: Mensajes (nuestra nueva pantalla)
-    MessagesScreen(),
+  // --- CAMBIO 1: Creamos una variable de estado para la notificación ---
+  bool _hasUnreadMessages = false;
 
-    // --- CAMBIO 2: La pestaña de Perfil (índice 3) ahora muestra tu pantalla ---
-    const UsuarioView(),
-  ];
+  // --- CAMBIO 2: Creamos la función que recibirá el aviso ---
+  void _updateUnreadStatus(bool hasUnread) {
+    // Usamos setState para guardar el valor y redibujar si es necesario
+    // (Añadimos 'mounted' por seguridad)
+    if (mounted) {
+      setState(() {
+        _hasUnreadMessages = hasUnread;
+      });
+    }
+  }
+
+  // --- CAMBIO 3: La lista de widgets ya NO puede ser 'static final' ---
+  // Debe ser una variable de la clase para poder acceder a '_updateUnreadStatus'
+  late final List<Widget> _widgetOptions;
+
+  @override
+  void initState() {
+    super.initState();
+    // Inicializamos la lista aquí, pasando el callback a MessagesScreen
+    _widgetOptions = <Widget>[
+      HomeFeedScreen(), // Pantalla 0: Home
+      const SearchScreen(), // Pantalla 1: Búsqueda
+      MessagesScreen(
+        // Pantalla 2: Mensajes
+        // Le pasamos nuestra función de callback
+        onUnreadStatusChanged: _updateUnreadStatus,
+      ),
+      const UsuarioView(), // Pantalla 3: Perfil
+    ];
+  }
 
   // Función que actualiza el estado cuando se presiona una pestaña
   void _onItemTapped(int index) {
@@ -80,19 +101,12 @@ class _MainNavigatorState extends State<MainNavigator> {
       ),
 
       // Usamos nuestro widget CustomBottomNavBar y le pasamos el estado
-      // Asumiendo que tu custom_bottom_nav_bar usa 'currentIndex' y 'onTap'
-      // Si usa 'selectedIndex' y 'onItemTapped', cambia los nombres aquí.
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        // --- CAMBIO 4: Pasamos el estado de "no leídos" a la barra ---
+        hasUnreadMessages: _hasUnreadMessages,
       ),
     );
   }
 }
-
-// YA NO NECESITAMOS la clase CustomBottomNavBar aquí,
-// porque la hemos movido a su propio archivo (lib/widgets/custom_bottom_nav_bar.dart).
-
-// NOTA: Tu 'HomeFeedScreen' (o como se llame tu pantalla de home)
-// y 'HomeContentScreen' deben estar definidos en sus respectivos archivos.
-// Aquí asumí que 'HomeFeedScreen' es la pantalla de índice 0.

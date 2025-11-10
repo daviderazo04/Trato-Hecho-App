@@ -4,7 +4,7 @@ class AppColors {
   // Colores principales
   static const Color primary = Color(0xFF3B607D); // Azul profundo
   static const Color secondary = Color(0xFF00BFFF); // Azul cian
-  static const Color accent = Color(0xFFFF6B6B); // Coral claro
+  static const Color notificacion = Color.fromARGB(255, 26, 188, 156); // Coral claro
 
   // Estados
   static const Color success = Color(0xFF00C46A); // Verde menta

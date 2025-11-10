@@ -9,14 +9,24 @@ class CustomBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
 
+  // --- CAMBIO 1: Añadimos la nueva propiedad ---
+  final bool hasUnreadMessages;
+
   const CustomBottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    // --- CAMBIO 2: La aceptamos en el constructor ---
+    this.hasUnreadMessages = false, // Valor por defecto
   });
 
   @override
   Widget build(BuildContext context) {
+    // Color para el icono activo
+    const Color activeColor = Color.fromARGB(255, 255, 255, 255);
+    // Color para el icono inactivo (un poco opaco)
+    const Color inactiveColor = Color.fromARGB(150, 255, 255, 255);
+
     return BottomAppBar(
       color: Colors.white,
       elevation: 0,
@@ -42,44 +52,74 @@ class CustomBottomNavBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
-            // Icono de Home
+            // --- Icono de Home (Índice 0) ---
             IconButton(
-              // CAMBIO: El icono cambia si está seleccionado
               icon: Icon(currentIndex == 0 ? Icons.home : Icons.home_outlined),
-              color: const Color.fromARGB(255, 255, 255, 255),
+              // --- CAMBIO 3: Lógica de color activo/inactivo ---
+              color: currentIndex == 0 ? activeColor : inactiveColor,
               iconSize: 32.0,
               padding: EdgeInsets.zero,
-              // CAMBIO: Llama a la función onTap con el índice 0
+              constraints: const BoxConstraints(), // Asegura centrado
               onPressed: () => onTap(0),
             ),
-            // Icono de Búsqueda
+
+            // --- Icono de Búsqueda (Índice 1) ---
             IconButton(
-              icon: Icon(currentIndex == 1
-                  ? Icons.search
-                  : Icons
-                      .search_outlined), // Asumiendo que 'search_outlined' existe o usa 'search'
-              color: const Color.fromARGB(255, 255, 255, 255),
+              icon: Icon(
+                  currentIndex == 1 ? Icons.search : Icons.search_outlined),
+              color: currentIndex == 1 ? activeColor : inactiveColor,
               iconSize: 32.0,
               padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
               onPressed: () => onTap(1),
             ),
-            // Icono de Chat
-            IconButton(
-              icon: Icon(currentIndex == 2
-                  ? Icons.chat_bubble
-                  : Icons.chat_bubble_outline),
-              color: const Color.fromARGB(255, 255, 255, 255),
-              iconSize: 32.0,
-              padding: EdgeInsets.zero,
-              onPressed: () => onTap(2), // Este es el que nos importa
+
+            // --- CAMBIO 4: Icono de Chat (Índice 2) ---
+            // Envolvemos el IconButton en un Stack
+            Stack(
+              clipBehavior: Clip.none, // Permite que la burbuja se salga
+              children: [
+                IconButton(
+                  icon: Icon(currentIndex == 2
+                      ? Icons.chat_bubble
+                      : Icons.chat_bubble_outline),
+                  color: currentIndex == 2 ? activeColor : inactiveColor,
+                  iconSize: 32.0,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () => onTap(2),
+                ),
+                // --- CAMBIO 5: Esta es la burbuja de notificación ---
+                if (hasUnreadMessages) // Solo se muestra si es true
+                  Positioned(
+                    top: 0, // Ajusta la posición vertical
+                    right: 5, // Ajusta la posición horizontal
+                    child: Container(
+                      width: 15, // Tamaño de la burbuja
+                      height: 15,
+                      decoration: BoxDecoration(
+                        // El color verde de tus chats
+                        color: AppColors.notificacion,
+                        shape: BoxShape.circle,
+                        // Borde opcional para que resalte sobre la barra
+                        border: Border.all(
+                          color: AppColors.primary,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            // Icono de Perfil
+
+            // --- Icono de Perfil (Índice 3) ---
             IconButton(
               icon:
                   Icon(currentIndex == 3 ? Icons.person : Icons.person_outline),
-              color: const Color.fromARGB(255, 255, 255, 255),
+              color: currentIndex == 3 ? activeColor : inactiveColor,
               iconSize: 32.0,
               padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
               onPressed: () => onTap(3),
             ),
           ],
