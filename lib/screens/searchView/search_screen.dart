@@ -663,7 +663,7 @@ class _HighlightCard extends StatelessWidget {
                     children: [
                       Icon(
                         Icons.star_rounded,
-                        color: AppColors.accent,
+                        color: AppColors.notificacion,
                         size: 20,
                       ),
                       const SizedBox(width: 4),

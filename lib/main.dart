@@ -6,6 +6,11 @@ import 'screens/chatView/messages_screen.dart';
 import 'widgets/custom_bottom_nav_bar.dart';
 import 'screens/homeView/home_screen.dart';
 import 'screens/searchView/search_screen.dart';
+<<<<<<< HEAD
+=======
+
+// Importamos tu nueva vista de usuario
+>>>>>>> f480bf750d494095eeaa4e34ff5298019f476bbc
 import 'screens/usuarioView/usuarioView.dart';
 import 'config/theme_provider.dart';
 
@@ -47,6 +52,7 @@ class MainNavigator extends StatefulWidget {
 }
 
 class _MainNavigatorState extends State<MainNavigator> {
+<<<<<<< HEAD
   int _selectedIndex = 0;
 
   // Note: Ensure HomeFeedScreen is imported or defined
@@ -56,6 +62,44 @@ class _MainNavigatorState extends State<MainNavigator> {
     MessagesScreen(),
     const UsuarioView(),
   ];
+=======
+  // Variable para guardar el índice de la pestaña seleccionada
+  int _selectedIndex = 0;
+
+  // --- CAMBIO 1: Creamos una variable de estado para la notificación ---
+  bool _hasUnreadMessages = false;
+
+  // --- CAMBIO 2: Creamos la función que recibirá el aviso ---
+  void _updateUnreadStatus(bool hasUnread) {
+    // Usamos setState para guardar el valor y redibujar si es necesario
+    // (Añadimos 'mounted' por seguridad)
+    if (mounted) {
+      setState(() {
+        _hasUnreadMessages = hasUnread;
+      });
+    }
+  }
+
+  // --- CAMBIO 3: La lista de widgets ya NO puede ser 'static final' ---
+  // Debe ser una variable de la clase para poder acceder a '_updateUnreadStatus'
+  late final List<Widget> _widgetOptions;
+
+  @override
+  void initState() {
+    super.initState();
+    // Inicializamos la lista aquí, pasando el callback a MessagesScreen
+    _widgetOptions = <Widget>[
+      HomeFeedScreen(), // Pantalla 0: Home
+      const SearchScreen(), // Pantalla 1: Búsqueda
+      MessagesScreen(
+        // Pantalla 2: Mensajes
+        // Le pasamos nuestra función de callback
+        onUnreadStatusChanged: _updateUnreadStatus,
+      ),
+      const UsuarioView(), // Pantalla 3: Perfil
+    ];
+  }
+>>>>>>> f480bf750d494095eeaa4e34ff5298019f476bbc
 
   void _onItemTapped(int index) {
     setState(() {
@@ -70,10 +114,21 @@ class _MainNavigatorState extends State<MainNavigator> {
         index: _selectedIndex,
         children: _widgetOptions,
       ),
+<<<<<<< HEAD
+=======
+
+      // Usamos nuestro widget CustomBottomNavBar y le pasamos el estado
+>>>>>>> f480bf750d494095eeaa4e34ff5298019f476bbc
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        // --- CAMBIO 4: Pasamos el estado de "no leídos" a la barra ---
+        hasUnreadMessages: _hasUnreadMessages,
       ),
     );
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> f480bf750d494095eeaa4e34ff5298019f476bbc

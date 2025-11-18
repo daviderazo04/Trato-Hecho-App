@@ -2,18 +2,23 @@ import 'package:flutter/material.dart';
 // --- IMPORTAMOS LA PANTALLA DE CHAT ---
 import 'chat_detail_screen.dart';
 
-// --- CAMBIO 1: Convertido a StatefulWidget ---
+// --- CAMBIO 1: Añadimos un callback al constructor ---
 class MessagesScreen extends StatefulWidget {
-  const MessagesScreen({super.key});
+  // Esta función será llamada cada vez que el estado de "no leídos" cambie
+  final Function(bool) onUnreadStatusChanged;
+
+  const MessagesScreen({
+    super.key,
+    required this.onUnreadStatusChanged, // Hacemos que sea requerido
+  });
 
   @override
   State<MessagesScreen> createState() => _MessagesScreenState();
 }
 
 class _MessagesScreenState extends State<MessagesScreen> {
-  // --- CAMBIO 2: Movemos la lista al State y quitamos 'final' y 'const' ---
-  // Esto nos permite modificar la lista.
-  List<Map<String, dynamic>> chatData = [
+  // Esta es nuestra lista "Maestra"
+  final List<Map<String, dynamic>> chatData = [
     {
       "image":
           "https://img.vorecol.com/ia-images/1502/mazamitla-mariachi15.jpeg",
@@ -62,14 +67,20 @@ class _MessagesScreenState extends State<MessagesScreen> {
   ];
   // --- FIN DE DATOS QUEMADOS ---
 
-// --- CAMBIO 5: VARIABLES PARA LA BÚSQUEDA ---
   // Esta lista contendrá los chats que coinciden con la búsqueda
   List<Map<String, dynamic>> _filteredChatData = [];
   // Controlador para el campo de texto
   final _searchController = TextEditingController();
-  // --- FIN DE CAMBIOS DE BÚSQUEDA ---
 
-  // --- CAMBIO 6: INICIALIZAMOS EL ESTADO ---
+  // --- CAMBIO 2: Creamos una función para notificar al padre ---
+  void _notifyParentAboutUnreadStatus() {
+    // Verificamos si algún chat en la lista original tiene un contador > 0
+    final bool hasUnread =
+        chatData.any((chat) => (chat['count'] ?? 0) > 0);
+    // Llamamos a la función callback que nos pasó el MainNavigator
+    widget.onUnreadStatusChanged(hasUnread);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -77,9 +88,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
     _filteredChatData = chatData;
     // Añadimos un "escuchador" al controlador
     _searchController.addListener(_filterChats);
+
+    // --- CAMBIO 3: Notificamos el estado inicial al arrancar ---
+    // (Usamos un frame de retraso para asegurar que el widget padre esté listo)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _notifyParentAboutUnreadStatus();
+    });
   }
 
-  // --- CAMBIO 7: LIMPIAMOS EL CONTROLADOR ---
   @override
   void dispose() {
     _searchController.removeListener(_filterChats);
@@ -87,7 +103,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     super.dispose();
   }
 
-  // --- CAMBIO 8: FUNCIÓN DE FILTRADO ---
+  // --- Función de Filtrado ---
   void _filterChats() {
     // Obtenemos el texto de búsqueda (en minúsculas)
     final query = _searchController.text.toLowerCase();
@@ -114,7 +130,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
     });
   }
 
-  // --- FIN DE FUNCIÓN DE FILTRADO ---
   @override
   Widget build(BuildContext context) {
     // Usamos un SafeArea para evitar que el contenido se solape con la barra de estado
@@ -138,7 +153,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: TextField(
-              // --- CAMBIO 9: Conectamos el controlador ---
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Buscar...',
@@ -159,7 +173,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
           // --- INICIO DE LA LISTA DE MENSAJES ---
           Expanded(
             child: ListView.separated(
-              // --- CAMBIO 10: Usamos la longitud de la lista FILTRADA ---
               itemCount: _filteredChatData.length,
               separatorBuilder: (context, index) => const Divider(
                 height: 1,
@@ -169,7 +182,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 endIndent: 16,
               ),
               itemBuilder: (context, index) {
-                // --- CAMBIO 11: Obtenemos el item de la lista FILTRADA ---
+                // Obtenemos el item de la lista FILTRADA
                 final item = _filteredChatData[index];
 
                 final bool hasUnread = (item["message"] == "¡Mensaje nuevo!");
@@ -177,7 +190,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
                 // Usamos ListTile, es perfecto para esta estructura
                 return ListTile(
-                  // --- CAMBIO 3: Hacemos el onTap 'async' ---
                   onTap: () async {
                     // Navegamos a la pantalla de detalle y ESPERAMOS a que regrese
                     await Navigator.push(
@@ -195,13 +207,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     // Verificamos si este item tenía mensajes nuevos
                     if (hasUnread || hasBadge) {
                       setState(() {
-                        // --- CAMBIO 12: Modificamos el 'item' directamente ---
-                        // Esto actualiza el item en la lista maestra (chatData)
-                        // porque _filteredChatData contiene referencias a los
-                        // mismos objetos en chatData.
-                        item["message"] =
-                            "Enviado"; // O "Visto", como prefieras
+                        // Modificamos el item. Esto funciona porque
+                        // _filteredChatData y chatData apuntan a los mismos Mapas.
+                        item["message"] = "Enviado";
                         item["count"] = 0;
+
+                        // Notificamos al padre que el estado de "no leídos" pudo haber cambiado
+                        _notifyParentAboutUnreadStatus();
                       });
                     }
                   },
