@@ -1,48 +1,50 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart'; // Import this for thinner icons
+import 'package:provider/provider.dart';
 import '../../config/appColors.dart';
+import '../../config/theme_provider.dart';
 
-///
-/// Este es nuestro Widget reutilizable para la barra de navegación.
-///
 class CustomBottomNavBar extends StatelessWidget {
-  // Ahora acepta el índice actual y una función para manejar el "tap"
   final int currentIndex;
   final Function(int) onTap;
-
-  // --- CAMBIO 1: Añadimos la nueva propiedad ---
   final bool hasUnreadMessages;
 
   const CustomBottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
-    // --- CAMBIO 2: La aceptamos en el constructor ---
-    this.hasUnreadMessages = false, // Valor por defecto
+    this.hasUnreadMessages = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Color para el icono activo
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final bool isDarkMode = themeProvider.isDarkMode;
+
     const Color activeColor = Color.fromARGB(255, 255, 255, 255);
-    // Color para el icono inactivo (un poco opaco)
-    const Color inactiveColor = Color.fromARGB(150, 255, 255, 255);
+    const Color inactiveColor = Color.fromARGB(190, 255, 255, 255);
 
     return BottomAppBar(
-      color: Colors.white,
+      color: isDarkMode ? AppColors.backgroundDark : Colors.white,
       elevation: 0,
       child: Container(
-        height: 70,
-        margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        // --- CHANGE 1: Taller (Larger) ---
+        height: 80,
+        margin: const EdgeInsets.symmetric(horizontal: 1.0, vertical: 2.0),
+
         decoration: BoxDecoration(
-          color: AppColors.primary,
-          borderRadius: BorderRadius.circular(10.0),
+          color: isDarkMode ? AppColors.darkButtons : AppColors.primary,
+          borderRadius:
+              BorderRadius.circular(30.0), // Slightly rounder to match new size
           border: Border.all(
-            color: AppColors.primary,
+            color: isDarkMode ? AppColors.darkBorders : AppColors.border,
             width: 2.0,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.3),
+              color: isDarkMode
+                  ? Colors.black.withOpacity(0.5)
+                  : Colors.grey.withOpacity(0.3),
               spreadRadius: 2,
               blurRadius: 5,
               offset: const Offset(0, 3),
@@ -52,58 +54,62 @@ class CustomBottomNavBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
-            // --- Icono de Home (Índice 0) ---
+            // --- CHANGE 3: Thinner Icons (Cupertino) ---
+
+            // 1. Home
             IconButton(
-              icon: Icon(currentIndex == 0 ? Icons.home : Icons.home_outlined),
-              // --- CAMBIO 3: Lógica de color activo/inactivo ---
+              // CupertinoIcons.house is much thinner than Icons.home_outlined
+              icon: Icon(currentIndex == 0
+                  ? CupertinoIcons.house_fill
+                  : CupertinoIcons.house),
               color: currentIndex == 0 ? activeColor : inactiveColor,
-              iconSize: 32.0,
+              iconSize:
+                  30.0, // Kept size roughly same (Cupertino is visually larger, so 30 is good)
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(), // Asegura centrado
+              constraints: const BoxConstraints(),
               onPressed: () => onTap(0),
             ),
 
-            // --- Icono de Búsqueda (Índice 1) ---
+            // 2. Search
             IconButton(
-              icon: Icon(
-                  currentIndex == 1 ? Icons.search : Icons.search_outlined),
+              // Cupertino Search is very thin
+              icon: const Icon(CupertinoIcons.search),
+              // Bold/Fill doesn't really exist for search, so we rely on color/opacity
               color: currentIndex == 1 ? activeColor : inactiveColor,
-              iconSize: 32.0,
+              iconSize: 30.0,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               onPressed: () => onTap(1),
             ),
 
-            // --- CAMBIO 4: Icono de Chat (Índice 2) ---
-            // Envolvemos el IconButton en un Stack
+            // 3. Chat
             Stack(
-              clipBehavior: Clip.none, // Permite que la burbuja se salga
+              clipBehavior: Clip.none,
               children: [
                 IconButton(
                   icon: Icon(currentIndex == 2
-                      ? Icons.chat_bubble
-                      : Icons.chat_bubble_outline),
+                      ? CupertinoIcons.chat_bubble_fill
+                      : CupertinoIcons.chat_bubble),
                   color: currentIndex == 2 ? activeColor : inactiveColor,
-                  iconSize: 32.0,
+                  iconSize: 30.0,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   onPressed: () => onTap(2),
                 ),
-                // --- CAMBIO 5: Esta es la burbuja de notificación ---
-                if (hasUnreadMessages) // Solo se muestra si es true
+                if (hasUnreadMessages)
                   Positioned(
-                    top: 0, // Ajusta la posición vertical
-                    right: 5, // Ajusta la posición horizontal
+                    top: 0,
+                    right: 0,
                     child: Container(
-                      width: 15, // Tamaño de la burbuja
-                      height: 15,
+                      width: 14,
+                      height: 14,
                       decoration: BoxDecoration(
-                        // El color verde de tus chats
                         color: AppColors.notificacion,
                         shape: BoxShape.circle,
-                        // Borde opcional para que resalte sobre la barra
                         border: Border.all(
-                          color: AppColors.primary,
+                          color: isDarkMode
+                              ? AppColors.darkButtons
+                              : AppColors.primary,
                           width: 1.5,
                         ),
                       ),
@@ -112,12 +118,13 @@ class CustomBottomNavBar extends StatelessWidget {
               ],
             ),
 
-            // --- Icono de Perfil (Índice 3) ---
+            // 4. Profile
             IconButton(
-              icon:
-                  Icon(currentIndex == 3 ? Icons.person : Icons.person_outline),
+              icon: Icon(currentIndex == 3
+                  ? CupertinoIcons.person_fill
+                  : CupertinoIcons.person),
               color: currentIndex == 3 ? activeColor : inactiveColor,
-              iconSize: 32.0,
+              iconSize: 30.0,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               onPressed: () => onTap(3),

@@ -296,8 +296,9 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildSearchForm(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final fieldTheme =
-        (theme.inputDecorationTheme as InputDecorationTheme).copyWith(
+
+    // FIX: Removed 'as InputDecorationTheme'
+    final fieldTheme = theme.inputDecorationTheme.copyWith(
       fillColor: AppColors.backgroundWhite,
     );
 

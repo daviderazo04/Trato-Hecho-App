@@ -138,8 +138,8 @@ class _UsuarioViewState extends State<UsuarioView> {
                     color: _cardColor(isDarkMode),
                     borderRadius: BorderRadius.circular(30.0),
                     border: Border.all(
-                      color: _isSupplierMode
-                          ? AppColors.primary // Blue border when Provider
+                      color: isDarkMode
+                          ? AppColors.darkBorders // Blue border when Provider
                           : Colors.transparent, // Transparent when Client
                       width: 2.0,
                     ),
@@ -201,10 +201,10 @@ class _UsuarioViewState extends State<UsuarioView> {
                       children: [
                         _buildStatColumn('10', 'Tratos', isDarkMode),
                         Container(
-                            height: 30, width: 1, color: AppColors.border),
+                            height: 30, width: 1, color: AppColors.darkText),
                         _buildStatColumn('4', 'Reviews', isDarkMode),
                         Container(
-                            height: 30, width: 1, color: AppColors.border),
+                            height: 30, width: 1, color: AppColors.darkText),
                         _buildStatColumn('4', 'Años', isDarkMode),
                       ],
                     ),
@@ -263,7 +263,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                       Text(
                         'Mis Tratos',
                         style: TextStyle(
-                          color: AppColors.primary,
+                          color: _textColor(isDarkMode),
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -274,7 +274,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             icon: Icon(Icons.arrow_back_ios,
-                                color: AppColors.primary, size: 20),
+                                color: _textColor(isDarkMode), size: 18),
                             onPressed: () => _scroll(-scrollAmount),
                           ),
                           const SizedBox(width: 8),
@@ -282,7 +282,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             icon: Icon(Icons.arrow_forward_ios,
-                                color: AppColors.primary, size: 20),
+                                color: _textColor(isDarkMode), size: 18),
                             onPressed: () => _scroll(scrollAmount),
                           ),
                         ],
@@ -379,7 +379,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                           style: TextStyle(
                             color: _textColor(isDarkMode),
                             fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -415,7 +415,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                           style: TextStyle(
                             color: _textColor(isDarkMode),
                             fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -513,14 +513,14 @@ class _UsuarioViewState extends State<UsuarioView> {
                 style: TextStyle(
                   color: _textColor(isDarkMode),
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
             if (showArrow)
               Icon(
                 Icons.arrow_forward_ios,
-                color: isDarkMode ? Colors.white70 : AppColors.textPrimary,
+                color: isDarkMode ? Colors.white : AppColors.textPrimary,
                 size: 14,
               ),
           ],
@@ -536,7 +536,7 @@ class _UsuarioViewState extends State<UsuarioView> {
         Text(
           count,
           style: TextStyle(
-            color: AppColors.primary,
+            color: _subTextColor(isDarkMode),
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -610,7 +610,7 @@ class _ServiceCard extends StatelessWidget {
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
