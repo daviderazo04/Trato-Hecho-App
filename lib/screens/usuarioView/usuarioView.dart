@@ -1,34 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // Import Provider
+// Assuming your file structure, import the provider created in Step 2
+import '../../config/theme_provider.dart';
 import '../../config/appColors.dart';
-import '../../widgets/custom_bottom_nav_bar.dart';
-import '../proveedorView/new_service_screen.dart';
 import 'edit_profile_screen.dart';
 
-class UsuarioView extends StatefulWidget {
-  final bool showModeSwitch;
+// --- SERVICE DUMMIES (Keep your imports) ---
+class NewServiceScreen extends StatelessWidget {
+  const NewServiceScreen({Key? key}) : super(key: key);
+  @override
+  Widget build(BuildContext context) =>
+      Scaffold(appBar: AppBar(title: Text("New Service")));
+}
 
-  const UsuarioView({
-    Key? key,
-    this.showModeSwitch = false,
-  }) : super(key: key);
+class UsuarioView extends StatefulWidget {
+  const UsuarioView({Key? key}) : super(key: key);
 
   @override
   _UsuarioViewState createState() => _UsuarioViewState();
 }
 
 class _UsuarioViewState extends State<UsuarioView> {
-  int _selectedIndex = 3;
   final ScrollController _scrollController = ScrollController();
 
-  // This variable now controls which UI is shown
+  // Local State (Supplier mode is still local to this screen usually,
+  // but DarkMode is now removed from here)
   bool _isSupplierMode = false;
   String _selectedFontSize = '16 pt';
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
 
   @override
   void dispose() {
@@ -44,386 +42,430 @@ class _UsuarioViewState extends State<UsuarioView> {
     );
   }
 
+  // --- Helper to get dynamic colors based on Global Dark Mode ---
+  // We pass the boolean 'isDark' into these getters now
+  Color _backgroundColor(bool isDark) =>
+      isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+
+  Color _textColor(bool isDark) =>
+      isDark ? AppColors.darkText : AppColors.textPrimary;
+
+  Color _subTextColor(bool isDark) =>
+      isDark ? Colors.grey[300]! : AppColors.textSecondary;
+
+  Color _iconColor(bool isDark) => isDark ? Colors.white : AppColors.primary;
+
+  Color _cardColor(bool isDark) =>
+      isDark ? AppColors.darkButtons : const Color(0xFFF0F4F8);
+
   @override
   Widget build(BuildContext context) {
     const double scrollAmount = 156.0;
 
+    // 1. ACCESS THE GLOBAL VARIABLE HERE
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final bool isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: _backgroundColor(isDarkMode),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
             padding:
-                const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+                const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start, // Align titles left
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 10),
 
-                // --- 1. Sección de Perfil (Avatar, Nombre y Estadísticas) ---
+                // --- 1. HEADER: Avatar & Name ---
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.grey[200],
-                      backgroundImage: NetworkImage(
-                        'https://www.jreventos.com.ar/uploads/servicio-imagen/big/af332f5af35068cd6a8935e65c7f0a5c.jpeg',
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color:
+                                isDarkMode ? AppColors.primary : Colors.white,
+                            width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 42,
+                        backgroundImage: const NetworkImage(
+                          'https://www.jreventos.com.ar/uploads/servicio-imagen/big/af332f5af35068cd6a8935e65c7f0a5c.jpeg',
+                        ),
                       ),
                     ),
                     const SizedBox(width: 20),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Pedro el Enano',
-                            style: TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pedro Salas',
+                          style: TextStyle(
+                            color: _textColor(isDarkMode),
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Quito, Ecuador',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 14,
-                            ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Quito, Ecuador',
+                          style: TextStyle(
+                            color: _subTextColor(isDarkMode),
+                            fontSize: 15,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
 
-                // --- 2. (CONDITIONAL) Sección de Estadísticas ---
-                // This will HIDE when in client mode
-                if (_isSupplierMode)
-                  Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildStatColumn('10', 'Tratos'),
-                          Container(
-                            height: 50,
-                            width: 1,
-                            color: AppColors.border,
-                          ),
-                          _buildStatColumn('4', 'Reviews'),
-                          Container(
-                            height: 50,
-                            width: 1,
-                            color: AppColors.border,
-                          ),
-                          _buildStatColumn('4', 'Años en TratoHecho'),
-                        ],
+                const SizedBox(height: 30),
+
+                // --- 2. MODE SWITCH ---
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20.0, vertical: 8.0),
+                  decoration: BoxDecoration(
+                    color: _cardColor(isDarkMode),
+                    borderRadius: BorderRadius.circular(30.0),
+                    border: Border.all(
+                      color: _isSupplierMode
+                          ? AppColors.primary // Blue border when Provider
+                          : Colors.transparent, // Transparent when Client
+                      width: 2.0,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                      const SizedBox(height: 24),
                     ],
                   ),
-
-                // --- 3. (CONDITIONAL) Modo Proveedor/Cliente Switch ---
-                if (widget.showModeSwitch)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20.0, vertical: 4.0),
-                      decoration: BoxDecoration(
-                        color: Color(0xFFEFEFF4),
-                        borderRadius: BorderRadius.circular(30.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _isSupplierMode ? 'Modo Proveedor' : 'Modo Cliente',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: _textColor(isDarkMode),
+                        ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // --- DYNAMIC LABEL ---
-                          Text(
-                            _isSupplierMode ? 'Modo Proveedor' : 'Modo Cliente',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          Switch(
-                            value: _isSupplierMode,
-                            onChanged: (value) {
-                              setState(() {
-                                _isSupplierMode = value;
-                              });
-                            },
-                            activeColor: AppColors.primary,
-                          ),
-                        ],
+                      Transform.scale(
+                        scale: 0.9,
+                        child: Switch(
+                          value: _isSupplierMode,
+                          onChanged: (value) {
+                            setState(() {
+                              _isSupplierMode = value;
+                            });
+                          },
+                          activeColor: Colors.white,
+                          activeTrackColor: AppColors.primary,
+                          inactiveThumbColor: Colors.white,
+                          inactiveTrackColor: const Color(0xFFB0B0B0),
+                        ),
                       ),
-                    ),
-                  ),
-
-                // --- 4. "Tratos" Section (Shared) ---
-                Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
-                  child: Text(
-                    'Tratos',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                _buildOptionRow(
-                  context,
-                  icon: Icons.history,
+
+                const SizedBox(height: 20),
+
+                // --- 3. (CONDITIONAL) SUPPLIER STATS ---
+                if (_isSupplierMode) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? AppColors.darkButtons : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                          color: isDarkMode
+                              ? Colors.transparent
+                              : AppColors.border),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatColumn('10', 'Tratos', isDarkMode),
+                        Container(
+                            height: 30, width: 1, color: AppColors.border),
+                        _buildStatColumn('4', 'Reviews', isDarkMode),
+                        Container(
+                            height: 30, width: 1, color: AppColors.border),
+                        _buildStatColumn('4', 'Años', isDarkMode),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
+                // --- 4. LIST SECTION ---
+                _buildSectionTitle('Tratos', isDarkMode),
+                const SizedBox(height: 10),
+                _buildMenuItem(
+                  icon: Icons.access_time,
                   text: 'Tratos Recientes',
                   onTap: () {},
+                  isDarkMode: isDarkMode,
                 ),
-                _buildOptionRow(
-                  context,
+                _buildMenuItem(
                   icon: Icons.favorite_border,
                   text: 'Favoritos',
                   onTap: () {},
+                  isDarkMode: isDarkMode,
                 ),
-                // --- (CONDITIONAL) List Item ---
+
                 if (_isSupplierMode)
-                  _buildOptionRow(
-                    context,
-                    icon: Icons.publish, // Supplier icon
-                    text: 'Publicar Servicios', // Supplier text
+                  _buildMenuItem(
+                    icon: Icons.publish,
+                    text: 'Publicar Servicios',
                     onTap: () {},
+                    isDarkMode: isDarkMode,
                   )
                 else
-                  _buildOptionRow(
-                    context,
-                    icon: Icons.check, // Customer icon
-                    text: 'Prestar Servicios', // Customer text
+                  _buildMenuItem(
+                    icon: Icons.check,
+                    text: 'Prestar Servicios',
                     onTap: () {
-                      // Maybe this toggles them to supplier mode?
                       setState(() {
                         _isSupplierMode = true;
                       });
                     },
+                    isDarkMode: isDarkMode,
                   ),
-                _buildOptionRow(
-                  context,
-                  icon: Icons.quiz_outlined,
+
+                _buildMenuItem(
+                  icon: Icons.help_outline,
                   text: 'Preguntas Frecuentes',
                   onTap: () {},
+                  isDarkMode: isDarkMode,
                 ),
 
-                // --- 5. (CONDITIONAL) Supplier-Only Sections ---
-                // This entire block will HIDE when in client mode
-                if (_isSupplierMode)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                // --- 5. (CONDITIONAL) SUPPLIER DASHBOARD ---
+                if (_isSupplierMode) ...[
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const SizedBox(height: 24),
-                      // --- "Mis Tratos" Section ---
+                      Text(
+                        'Mis Tratos',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Mis Tratos',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            icon: Icon(Icons.arrow_back_ios,
+                                color: AppColors.primary, size: 20),
+                            onPressed: () => _scroll(-scrollAmount),
                           ),
-                          Row(
-                            children: [
-                              IconButton(
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                icon: Icon(Icons.arrow_back_ios,
-                                    color: AppColors.primary, size: 20),
-                                onPressed: () => _scroll(-scrollAmount),
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                icon: Icon(Icons.arrow_forward_ios,
-                                    color: AppColors.primary, size: 20),
-                                onPressed: () => _scroll(scrollAmount),
-                              ),
-                            ],
+                          const SizedBox(width: 8),
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            icon: Icon(Icons.arrow_forward_ios,
+                                color: AppColors.primary, size: 20),
+                            onPressed: () => _scroll(scrollAmount),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 16),
-                      // --- Carrusel de Tarjetas ---
-                      SizedBox(
-                        height: 140,
-                        child: Scrollbar(
-                          controller: _scrollController,
-                          thumbVisibility: true,
-                          thickness: 3.0,
-                          radius: const Radius.circular(2.0),
-                          child: ListView(
-                            controller: _scrollController,
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.only(bottom: 20),
-                            children: const [
-                              _ServiceCard(
-                                imageUrl:
-                                    'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROP0F8frSy8dG_OEnlu6tcyS6LYBsXYC5h1g&s',
-                                serviceName: 'Mariachis',
-                              ),
-                              SizedBox(width: 16),
-                              _ServiceCard(
-                                imageUrl:
-                                    'https://media.minutouno.com/p/4a0e318ddc071d2050e87fbc4adaec7f/adjuntos/150/imagenes/027/232/0027232808/610x0/smart/enano.png',
-                                serviceName: 'Enanos',
-                              ),
-                              SizedBox(width: 16),
-                              _ServiceCard(
-                                imageUrl:
-                                    'https://ichef.bbci.co.uk/ace/ws/640/amz/worldservice/live/assets/images/2015/04/11/150411184332_reino4.jpg.webp',
-                                serviceName: 'Bailarines',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // --- "Publicar un nuevo Trato" Button ---
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(double.infinity, 50),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const NewServiceScreen()),
-                          );
-                        },
-                        child: const Text(
-                          'Publicar un nuevo Trato',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // --- Divider ---
-                      Divider(
-                        color: AppColors.border,
-                        thickness: 1,
                       ),
                     ],
                   ),
-
-                // --- 6. "Configuración" Section (Shared) ---
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                  child: Text(
-                    'Configuración',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 140,
+                    child: ListView(
+                      controller: _scrollController,
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.only(bottom: 10),
+                      children: const [
+                        _ServiceCard(
+                            imageUrl:
+                                'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROP0F8frSy8dG_OEnlu6tcyS6LYBsXYC5h1g&s',
+                            serviceName: 'Mariachis'),
+                        SizedBox(width: 16),
+                        _ServiceCard(
+                            imageUrl:
+                                'https://media.minutouno.com/p/4a0e318ddc071d2050e87fbc4adaec7f/adjuntos/150/imagenes/027/232/0027232808/610x0/smart/enano.png',
+                            serviceName: 'Enanos'),
+                        SizedBox(width: 16),
+                        _ServiceCard(
+                            imageUrl:
+                                'https://ichef.bbci.co.uk/ace/ws/640/amz/worldservice/live/assets/images/2015/04/11/150411184332_reino4.jpg.webp',
+                            serviceName: 'Bailarines'),
+                      ],
                     ),
                   ),
-                ),
-                Column(
-                  children: [
-                    _buildOptionRow(
-                      context,
-                      icon: Icons.person_outline,
-                      text: 'Cuenta',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const EditProfileScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildDivider(),
-                    _buildOptionRow(
-                      context,
-                      icon: Icons.lock_outline,
-                      text: 'Cambiar contraseña',
-                      onTap: () {},
-                    ),
-                    _buildDivider(),
-                    // --- Tamaño de Texto ---
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10.0),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.text_fields,
-                            color: AppColors.primary,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              'Tamaño de Texto',
-                              style: TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: AppColors.border),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _selectedFontSize,
-                                items: <String>[
-                                  '12 pt',
-                                  '14 pt',
-                                  '16 pt',
-                                  '18 pt'
-                                ].map((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(
-                                      value,
-                                      style: TextStyle(
-                                          color: AppColors.textPrimary),
-                                    ),
-                                  );
-                                }).toList(),
-                                onChanged: (String? newValue) {
-                                  setState(() {
-                                    _selectedFontSize = newValue!;
-                                  });
-                                },
-                              ),
-                            ),
-                          )
-                        ],
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    _buildDivider(),
-                    // --- Cerrar Sesión ---
-                    _buildOptionRow(
-                      context,
-                      icon: Icons.logout,
-                      text: 'Cerrar Sesion',
-                      onTap: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const NewServiceScreen()),
+                      );
+                    },
+                    child: const Text(
+                      'Publicar un nuevo Trato',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                  ],
+                  ),
+                  Divider(color: AppColors.border, thickness: 1, height: 40),
+                ],
+
+                const SizedBox(height: 20),
+
+                // --- 6. CONFIGURATION SECTION ---
+                _buildSectionTitle('Configuración', isDarkMode),
+                const SizedBox(height: 10),
+                _buildMenuItem(
+                  icon: Icons.person_outline,
+                  text: 'Cuenta',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EditProfileScreen(),
+                      ),
+                    );
+                  },
+                  isDarkMode: isDarkMode,
                 ),
-                const SizedBox(height: 24),
+                _buildMenuItem(
+                  icon: Icons.lock_outline,
+                  text: 'Cambiar contraseña',
+                  onTap: () {},
+                  isDarkMode: isDarkMode,
+                ),
+
+                // --- GLOBAL DARK MODE SWITCH ---
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14.0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.nightlight_round,
+                          color: _iconColor(isDarkMode), size: 24),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'Modo Oscuro',
+                          style: TextStyle(
+                            color: _textColor(isDarkMode),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Transform.scale(
+                        scale: 0.8,
+                        child: Switch(
+                          value: isDarkMode, // Uses global state
+                          onChanged: (val) {
+                            // CALLS GLOBAL FUNCTION
+                            themeProvider.toggleTheme(val);
+                          },
+                          activeColor: Colors.white,
+                          activeTrackColor: AppColors.primary,
+                          inactiveThumbColor: Colors.white,
+                          inactiveTrackColor: const Color(0xFFB0B0B0),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Text Size
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10.0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.text_fields,
+                          color: _iconColor(isDarkMode), size: 24),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'Tamaño de Texto',
+                          style: TextStyle(
+                            color: _textColor(isDarkMode),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _cardColor(isDarkMode),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedFontSize,
+                            icon: Icon(Icons.keyboard_arrow_down,
+                                color: _textColor(isDarkMode)),
+                            dropdownColor: isDarkMode
+                                ? AppColors.backgroundDark
+                                : Colors.white,
+                            style: TextStyle(
+                              color: _textColor(isDarkMode),
+                              fontWeight: FontWeight.bold,
+                            ),
+                            items: ['12 pt', '14 pt', '16 pt', '18 pt']
+                                .map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
+                            onChanged: (newValue) {
+                              setState(() {
+                                _selectedFontSize = newValue!;
+                              });
+                            },
+                          ),
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+
+                _buildMenuItem(
+                  icon: Icons.logout,
+                  text: 'Cerrar Sesion',
+                  onTap: () {},
+                  showArrow: true,
+                  isDarkMode: isDarkMode,
+                ),
+
+                const SizedBox(height: 40),
               ],
             ),
           ),
@@ -432,18 +474,62 @@ class _UsuarioViewState extends State<UsuarioView> {
     );
   }
 
-  // --- Helper para Divisor sutil ---
-  Widget _buildDivider() {
-    return Divider(
-      color: AppColors.border,
-      height: 1,
-      indent: 20,
-      endIndent: 20,
+  // --- Helper Widgets (Updated to accept isDarkMode) ---
+
+  Widget _buildSectionTitle(String title, bool isDarkMode) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Text(
+        title,
+        style: TextStyle(
+          color: _textColor(isDarkMode),
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 
-  // --- Helper para las columnas de estadísticas ---
-  Widget _buildStatColumn(String count, String label) {
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String text,
+    required VoidCallback onTap,
+    bool showArrow = true,
+    required bool isDarkMode,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      highlightColor: Colors.transparent,
+      splashColor: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14.0),
+        child: Row(
+          children: [
+            Icon(icon, color: _iconColor(isDarkMode), size: 24),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: _textColor(isDarkMode),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            if (showArrow)
+              Icon(
+                Icons.arrow_forward_ios,
+                color: isDarkMode ? Colors.white70 : AppColors.textPrimary,
+                size: 14,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatColumn(String count, String label, bool isDarkMode) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -460,58 +546,16 @@ class _UsuarioViewState extends State<UsuarioView> {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: AppColors.textSecondary,
+            color: _subTextColor(isDarkMode),
             fontSize: 14,
           ),
         ),
       ],
     );
   }
-
-  // --- Helper para las filas de opciones ---
-  Widget _buildOptionRow(
-    BuildContext context, {
-    required IconData icon,
-    required String text,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: AppColors.primary,
-                size: 24,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: AppColors.primary,
-                size: 16,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
-// --- Widget: _ServiceCard (Sin cambios) ---
+// --- Service Card (Unchanged) ---
 class _ServiceCard extends StatelessWidget {
   final String imageUrl;
   final String serviceName;
@@ -531,8 +575,8 @@ class _ServiceCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(15.0),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            spreadRadius: 2,
+            color: Colors.black.withOpacity(0.1),
+            spreadRadius: 1,
             blurRadius: 5,
             offset: const Offset(0, 3),
           ),
@@ -550,9 +594,8 @@ class _ServiceCard extends StatelessWidget {
                 errorBuilder: (context, error, stackTrace) {
                   return Container(
                     color: AppColors.border,
-                    child: Center(
-                      child: Icon(Icons.broken_image,
-                          color: AppColors.textSecondary),
+                    child: const Center(
+                      child: Icon(Icons.broken_image, color: Colors.grey),
                     ),
                   );
                 },
@@ -564,10 +607,10 @@ class _ServiceCard extends StatelessWidget {
               child: Text(
                 serviceName,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),

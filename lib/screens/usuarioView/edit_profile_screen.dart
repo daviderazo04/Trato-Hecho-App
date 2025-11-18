@@ -110,14 +110,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         isExpanded: true,
                         decoration: InputDecoration(
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 10.0),
+                          contentPadding: const EdgeInsets.symmetric(
+                              vertical: 12.0, horizontal: 10.0),
                           labelText: 'Genero', // AÑADIDO
                           labelStyle: TextStyle(
-                              color: AppColors.textSecondary), // AÑADIDO
+                              color: AppColors.textPrimary), // AÑADIDO
                           // hint: Text('Genero', // ELIMINADO
-                          //     style: TextStyle(color: AppColors.textSecondary)),
+                          //     style: TextStyle(color: AppColors.textPrimary)),
                           prefixIcon:
-                              Icon(Icons.wc, color: AppColors.textSecondary),
+                              Icon(Icons.wc, color: AppColors.textPrimary),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8.0),
                               borderSide: BorderSide(color: AppColors.border)),
@@ -184,7 +185,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 // --- Botón Guardar ---
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondary,
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(double.infinity, 50),
                     shape: RoundedRectangleBorder(
@@ -246,7 +247,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
                   // Cambia el color de la insignia basado en el modo
-                  color: isEditing ? AppColors.secondary : AppColors.primary,
+                  color: isEditing ? AppColors.primary : AppColors.primary,
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 2),
                 ),
@@ -283,14 +284,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         // (En esta pantalla, el botón de editar de la cabecera no es necesario)
                       },
                       child: Icon(Icons.edit,
-                          color: AppColors.textSecondary, size: 22.0),
+                          color: AppColors.textPrimary, size: 22.0),
                     ),
                 ],
               ),
               const SizedBox(height: 4),
               Text(
                 'Quito, Ecuador',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
               ),
             ],
           ),
@@ -329,7 +330,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+          style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
         ),
       ],
     );
@@ -351,17 +352,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       validator: validator,
       decoration: InputDecoration(
         labelText: labelText,
-        labelStyle: TextStyle(color: AppColors.textSecondary),
-        prefixIcon: Icon(icon, color: AppColors.textSecondary),
+        labelStyle: TextStyle(color: AppColors.textPrimary),
+        prefixIcon: Icon(icon, color: AppColors.textPrimary),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8.0),
-            borderSide: BorderSide(color: AppColors.border)),
+            borderSide: BorderSide(color: AppColors.borders)),
         enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8.0),
-            borderSide: BorderSide(color: AppColors.border)),
+            borderSide: BorderSide(color: AppColors.borders)),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8.0),
-            borderSide: BorderSide(color: AppColors.secondary, width: 2)),
+            borderSide: BorderSide(color: AppColors.primary, width: 2)),
         filled: true,
         fillColor: AppColors.backgroundLight,
       ),

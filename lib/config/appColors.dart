@@ -5,19 +5,26 @@ class AppColors {
   static const Color primary = Color(0xFF3B607D); // Azul profundo
   static const Color secondary = Color(0xFF00BFFF); // Azul cian
   static const Color accent = Color(0xFFFF6B6B); // Coral claro
+  static const Color borders = Color.fromARGB(255, 0, 0, 0); // Amarillo dorado
+
+  //Modo oscuro
+  static const Color darkText = Color(0xFFFFFFFF);
+  static const Color backgroundDark = Color(0xFF213748);
+  static const Color darkButtons = Color(0xFF072740);
+  static const Color darkBorders = Color(0xFFFFFFFF);
+  static const Color dartInputBg = Color(0xFF768088);
 
   // Estados
-  static const Color success = Color(0xFF00C46A); // Verde menta
+  static const Color success = Color(0xFF00B484); // Verde menta
   static const Color warning = Color(0xFFFFC857); // Mostaza suave
   static const Color error = Color(0xFFE63946); // Rojo suave
 
   // Fondos
   static const Color backgroundLight = Color(0xFFFDFDFD); // Blanco cálido
-  static const Color backgroundDark = Color(0xFF1E1E1E); // Gris carbón
   static const Color backgroundWhite = Color(0xFFFFFFFF); // Blanco total
 
   // Textos
-  static const Color textPrimary = Color(0xFF333333); // Gris antracita
+  static const Color textPrimary = Color.fromARGB(255, 0, 0, 0); // Negro
   static const Color textSecondary = Color(0xFF7A7A7A); // Gris medio
 
   // Bordes y divisores
