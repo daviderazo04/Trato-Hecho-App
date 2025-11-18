@@ -6,11 +6,8 @@ import 'screens/chatView/messages_screen.dart';
 import 'widgets/custom_bottom_nav_bar.dart';
 import 'screens/homeView/home_screen.dart';
 import 'screens/searchView/search_screen.dart';
-<<<<<<< HEAD
-=======
 
 // Importamos tu nueva vista de usuario
->>>>>>> f480bf750d494095eeaa4e34ff5298019f476bbc
 import 'screens/usuarioView/usuarioView.dart';
 import 'config/theme_provider.dart';
 
@@ -52,19 +49,10 @@ class MainNavigator extends StatefulWidget {
 }
 
 class _MainNavigatorState extends State<MainNavigator> {
-<<<<<<< HEAD
+  // Variable para guardar el índice de la pestaña seleccionada
   int _selectedIndex = 0;
 
   // Note: Ensure HomeFeedScreen is imported or defined
-  static final List<Widget> _widgetOptions = <Widget>[
-    HomeFeedScreen(),
-    const SearchScreen(),
-    MessagesScreen(),
-    const UsuarioView(),
-  ];
-=======
-  // Variable para guardar el índice de la pestaña seleccionada
-  int _selectedIndex = 0;
 
   // --- CAMBIO 1: Creamos una variable de estado para la notificación ---
   bool _hasUnreadMessages = false;
@@ -99,7 +87,6 @@ class _MainNavigatorState extends State<MainNavigator> {
       const UsuarioView(), // Pantalla 3: Perfil
     ];
   }
->>>>>>> f480bf750d494095eeaa4e34ff5298019f476bbc
 
   void _onItemTapped(int index) {
     setState(() {
@@ -114,11 +101,9 @@ class _MainNavigatorState extends State<MainNavigator> {
         index: _selectedIndex,
         children: _widgetOptions,
       ),
-<<<<<<< HEAD
-=======
 
       // Usamos nuestro widget CustomBottomNavBar y le pasamos el estado
->>>>>>> f480bf750d494095eeaa4e34ff5298019f476bbc
+
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -127,8 +112,4 @@ class _MainNavigatorState extends State<MainNavigator> {
       ),
     );
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> f480bf750d494095eeaa4e34ff5298019f476bbc
