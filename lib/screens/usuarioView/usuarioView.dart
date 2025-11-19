@@ -66,6 +66,8 @@ class _UsuarioViewState extends State<UsuarioView> {
     // 1. ACCESS THE GLOBAL VARIABLE HERE
     final themeProvider = Provider.of<ThemeProvider>(context);
     final bool isDarkMode = themeProvider.isDarkMode;
+    // GET GLOBAL FONT SIZE LABEL
+    final String currentFontSize = themeProvider.currentFontSizeLabel;
 
     return Scaffold(
       backgroundColor: _backgroundColor(isDarkMode),
@@ -429,7 +431,8 @@ class _UsuarioViewState extends State<UsuarioView> {
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
-                            value: _selectedFontSize,
+                            // 1. Bind Value to Provider
+                            value: currentFontSize,
                             icon: Icon(Icons.keyboard_arrow_down,
                                 color: _textColor(isDarkMode)),
                             dropdownColor: isDarkMode
@@ -438,6 +441,8 @@ class _UsuarioViewState extends State<UsuarioView> {
                             style: TextStyle(
                               color: _textColor(isDarkMode),
                               fontWeight: FontWeight.bold,
+                              // Prevent this text from scaling endlessly inside itself
+                              fontSize: 14,
                             ),
                             items: ['12 pt', '14 pt', '16 pt', '18 pt']
                                 .map((String value) {
@@ -447,9 +452,10 @@ class _UsuarioViewState extends State<UsuarioView> {
                               );
                             }).toList(),
                             onChanged: (newValue) {
-                              setState(() {
-                                _selectedFontSize = newValue!;
-                              });
+                              if (newValue != null) {
+                                // 2. Call Provider Method
+                                themeProvider.setFontSize(newValue);
+                              }
                             },
                           ),
                         ),
@@ -457,7 +463,6 @@ class _UsuarioViewState extends State<UsuarioView> {
                     ],
                   ),
                 ),
-
                 _buildMenuItem(
                   icon: Icons.logout,
                   text: 'Cerrar Sesion',

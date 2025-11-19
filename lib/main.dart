@@ -40,6 +40,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return MaterialApp(
       title: 'TratoHecho',
       theme: ThemeData(
@@ -48,6 +50,19 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Sora',
       ),
       debugShowCheckedModeBanner: false,
+
+      // 2. THIS IS THE MAGIC PART
+      builder: (context, child) {
+        // This wraps every page in the app
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            // We use linear scaling based on our provider
+            textScaler: TextScaler.linear(themeProvider.textScaleFactor),
+          ),
+          child: child!,
+        );
+      },
+
       // 6. Decide which screen to show first based on the flag
       home: startWithWelcome ? const WelcomeScreen() : const MainNavigator(),
     );
