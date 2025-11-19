@@ -11,23 +11,35 @@ import 'screens/searchView/search_screen.dart';
 import 'screens/usuarioView/usuarioView.dart';
 import 'config/theme_provider.dart';
 
-void main() {
+import 'package:shared_preferences/shared_preferences.dart';
+import 'screens/welcomeView/welcome_screen.dart';
+
+void main() async {
+  // 2. Ensure binding is initialized because we are using async code in main
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 3. Check Shared Preferences
+  final prefs = await SharedPreferences.getInstance();
+  // Try to get the boolean. If it doesn't exist (first time), return false.
+  final bool seenWelcome = prefs.getBool('seenWelcome') ?? false;
+
   runApp(
-    // Fix: No 'const' here
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
-      child: const MyApp(),
+      // 4. Pass the 'seenWelcome' flag to MyApp
+      child: MyApp(startWithWelcome: !seenWelcome),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  // 5. Accept the flag in the constructor
+  final bool startWithWelcome;
+
+  const MyApp({super.key, required this.startWithWelcome});
 
   @override
   Widget build(BuildContext context) {
-    // Note: We will connect the theme here in the next step
-    // For now, this fixes the crash
     return MaterialApp(
       title: 'TratoHecho',
       theme: ThemeData(
@@ -36,7 +48,8 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Sora',
       ),
       debugShowCheckedModeBanner: false,
-      home: const MainNavigator(),
+      // 6. Decide which screen to show first based on the flag
+      home: startWithWelcome ? const WelcomeScreen() : const MainNavigator(),
     );
   }
 }

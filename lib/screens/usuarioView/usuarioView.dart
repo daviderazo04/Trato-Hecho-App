@@ -4,6 +4,7 @@ import 'package:provider/provider.dart'; // Import Provider
 import '../../config/theme_provider.dart';
 import '../../config/appColors.dart';
 import 'edit_profile_screen.dart';
+import '../../screens/welcomeView/welcome_screen.dart';
 
 // --- SERVICE DUMMIES (Keep your imports) ---
 class NewServiceScreen extends StatelessWidget {
@@ -460,7 +461,16 @@ class _UsuarioViewState extends State<UsuarioView> {
                 _buildMenuItem(
                   icon: Icons.logout,
                   text: 'Cerrar Sesion',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const WelcomeScreen(), // The screen to go to
+                      ),
+                      (Route<dynamic> route) =>
+                          false, // This function returns false to remove everything below
+                    );
+                  },
                   showArrow: true,
                   isDarkMode: isDarkMode,
                 ),
