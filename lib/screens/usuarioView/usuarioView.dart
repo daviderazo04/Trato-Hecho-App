@@ -5,6 +5,7 @@ import '../../config/theme_provider.dart';
 import '../../config/appColors.dart';
 import 'edit_profile_screen.dart';
 import '../../screens/welcomeView/welcome_screen.dart';
+import '../usuarioView/recent_deals_screen.dart';
 
 // --- SERVICE DUMMIES (Keep your imports) ---
 class NewServiceScreen extends StatelessWidget {
@@ -221,7 +222,15 @@ class _UsuarioViewState extends State<UsuarioView> {
                 _buildMenuItem(
                   icon: Icons.access_time,
                   text: 'Tratos Recientes',
-                  onTap: () {},
+                  onTap: () {
+                    // --- CORRECT WAY ---
+                    Navigator.push(
+                      // Use push, NOT pushReplacement
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const RecentDealsScreen()),
+                    );
+                  },
                   isDarkMode: isDarkMode,
                 ),
                 _buildMenuItem(
@@ -463,23 +472,26 @@ class _UsuarioViewState extends State<UsuarioView> {
                     ],
                   ),
                 ),
+
+                // --- 7. LOGOUT SECTION ---
                 _buildMenuItem(
                   icon: Icons.logout,
                   text: 'Cerrar Sesion',
                   onTap: () {
+                    // 1. Update Global State to Logged Out
+                    themeProvider.logout();
+
+                    // 2. Navigate to Welcome Screen and remove all previous screens
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
-                        builder: (context) =>
-                            const WelcomeScreen(), // The screen to go to
+                        builder: (context) => const WelcomeScreen(),
                       ),
-                      (Route<dynamic> route) =>
-                          false, // This function returns false to remove everything below
+                      (Route<dynamic> route) => false,
                     );
                   },
                   showArrow: true,
                   isDarkMode: isDarkMode,
                 ),
-
                 const SizedBox(height: 40),
               ],
             ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Import your files
+// Import your screens and widgets
 import 'screens/chatView/messages_screen.dart';
 import 'widgets/custom_bottom_nav_bar.dart';
 import 'screens/homeView/home_screen.dart';
@@ -18,16 +18,20 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
 
   final bool seenWelcome = prefs.getBool('seenWelcome') ?? false;
-
-  // --- FIX: Load these two values instead of hardcoding them ---
   final bool isDark = prefs.getBool('isDarkMode') ?? false;
   final String fontSizeLabel = prefs.getString('fontSizeLabel') ?? '14 pt';
 
+  // 2. Load the Auth State from storage
+  final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
   runApp(
     ChangeNotifierProvider(
-      // 2. Pass the LOADED values to the Provider constructor
-      create: (_) =>
-          ThemeProvider(isDark: isDark, fontSizeLabel: fontSizeLabel),
+      // 3. Pass all loaded values to the Provider
+      create: (_) => ThemeProvider(
+        isDark: isDark,
+        fontSizeLabel: fontSizeLabel,
+        isLoggedIn: isLoggedIn,
+      ),
       child: MyApp(startWithWelcome: !seenWelcome),
     ),
   );
@@ -45,18 +49,18 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'TratoHecho',
       theme: ThemeData(
-        // This ensures system bars (statusbar/nav bar) match the theme
+        // Match system bars to theme
         brightness:
             themeProvider.isDarkMode ? Brightness.dark : Brightness.light,
         primarySwatch: Colors.blue,
-        // This ensures the scaffold background changes globally
+        // Global background color
         scaffoldBackgroundColor:
             themeProvider.isDarkMode ? const Color(0xFF213748) : Colors.white,
         fontFamily: 'Sora',
       ),
       debugShowCheckedModeBanner: false,
 
-      // This applies the FONT SIZE globally to all screens
+      // Apply Font Size Globally
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(
@@ -71,7 +75,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// ... (Your MainNavigator class remains exactly the same) ...
+// --- MAIN NAVIGATOR ---
 class MainNavigator extends StatefulWidget {
   const MainNavigator({super.key});
 

@@ -5,16 +5,22 @@ class ThemeProvider extends ChangeNotifier {
   bool _isDarkMode;
   double _textScaleFactor = 1.0;
   String _currentFontSizeLabel;
+  // 1. New Variable for Auth State
+  bool _isLoggedIn;
 
   bool get isDarkMode => _isDarkMode;
   double get textScaleFactor => _textScaleFactor;
   String get currentFontSizeLabel => _currentFontSizeLabel;
+  bool get isLoggedIn => _isLoggedIn;
 
-  // Constructor now requires initial values
-  ThemeProvider({required bool isDark, required String fontSizeLabel})
-      : _isDarkMode = isDark,
-        _currentFontSizeLabel = fontSizeLabel {
-    // Apply the font size logic immediately upon creation
+  // Constructor now requires initial values for auth too
+  ThemeProvider({
+    required bool isDark,
+    required String fontSizeLabel,
+    required bool isLoggedIn, // <--- Add this
+  })  : _isDarkMode = isDark,
+        _currentFontSizeLabel = fontSizeLabel,
+        _isLoggedIn = isLoggedIn {
     _applyFontSize(fontSizeLabel);
   }
 
@@ -32,7 +38,22 @@ class ThemeProvider extends ChangeNotifier {
     prefs.setString('fontSizeLabel', label);
   }
 
-  // Helper to just calculate the scale (separated from saving logic)
+  // 2. Login Method
+  void login() async {
+    _isLoggedIn = true;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setBool('isLoggedIn', true);
+  }
+
+  // 3. Logout Method
+  void logout() async {
+    _isLoggedIn = false;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setBool('isLoggedIn', false);
+  }
+
   void _applyFontSize(String label) {
     _currentFontSizeLabel = label;
     switch (label) {
