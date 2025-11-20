@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../config/appColors.dart';
 
 // --- CAMBIO 1: Convertido a StatefulWidget ---
 class ChatDetailScreen extends StatefulWidget {
@@ -69,15 +70,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundWhite,
       // --- APPBAR PERSONALIZADA ---
       appBar: AppBar(
         // ... (el resto del AppBar no cambia)
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundWhite,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: AppColors.borders),
           onPressed: () =>
               Navigator.pop(context), // Regresa a la pantalla anterior
         ),
@@ -88,7 +89,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               // Usamos 'widget.' para acceder a las propiedades del StatefulWidget
               widget.chatName,
               style: const TextStyle(
-                color: Colors.black,
+                color: AppColors.borders,
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
               ),
@@ -96,7 +97,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             Text(
               widget.chatSubtitle,
               style: const TextStyle(
-                color: Colors.black54,
+                color: AppColors.borders,
                 fontSize: 14,
               ),
             ),
@@ -110,7 +111,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 Text(
                   widget.rating,
                   style: const TextStyle(
-                    color: Colors.black,
+                    color: AppColors.borders,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
@@ -118,7 +119,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 const SizedBox(width: 4),
                 const Icon(
                   Icons.star,
-                  color: Colors.amber,
+                  color: AppColors.amber,
                   size: 20,
                 ),
               ],
@@ -128,7 +129,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.0),
           child: Container(
-            color: Colors.grey[300],
+            color: AppColors.lightGray,
             height: 1.0,
           ),
         ),
@@ -154,16 +155,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         horizontal: 16.0, vertical: 10.0),
                     decoration: BoxDecoration(
                       color: isMe
-                          ? const Color.fromARGB(
-                              255, 173, 202, 226) // Azul claro
-                          : const Color.fromARGB(
-                              255, 0, 51, 102), // Azul oscuro
+                          ? AppColors.chatAzulClaro // Azul claro
+                          : AppColors.chatAzulOscuro, // Azul oscuro
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       message["text"]!,
                       style: TextStyle(
-                        color: isMe ? Colors.black87 : Colors.white,
+                        color: isMe ? AppColors.borders : AppColors.backgroundWhite,
                       ),
                     ),
                   ),
@@ -183,7 +182,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.backgroundWhite,
         border: Border(
           top: BorderSide(color: Colors.grey[300]!, width: 1.0),
         ),
@@ -215,7 +214,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             IconButton(
               icon: Icon(
                 Icons.send_outlined,
-                color: Colors.grey[600],
+                color: AppColors.gray,
                 size: 28,
               ),
               // --- CAMBIO 6: Asignamos la función de envío ---

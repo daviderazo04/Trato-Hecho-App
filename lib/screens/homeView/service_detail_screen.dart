@@ -4,6 +4,8 @@ import 'home_screen.dart' show ServiceCardData;
 // --- CAMBIO 1: Importamos la pantalla de chat ---
 // (Asumiendo que está en 'lib/screens/chatView/chat_detail_screen.dart')
 import '../chatView/chat_detail_screen.dart';
+import '../../config/theme_provider.dart';
+import '../../config/appColors.dart';
 
 class ServiceDetailScreen extends StatefulWidget {
   final ServiceCardData data;
@@ -39,19 +41,18 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final Color accentColor = const Color.fromRGBO(59, 96, 125, 1);
-    final Color contactButtonColor =
-        const Color.fromARGB(255, 26, 188, 156);
+    final Color accentColor = AppColors.primary;
+    final Color contactButtonColor = AppColors.notificacion;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundWhite,
       // --- APPBAR PERSONALIZADA ---
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundWhite,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: AppColors.borders),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -62,7 +63,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                 Text(
                   widget.data.rating.toStringAsFixed(1),
                   style: const TextStyle(
-                    color: Colors.black,
+                    color: AppColors.borders,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
@@ -70,7 +71,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                 const SizedBox(width: 4),
                 Icon(
                   Icons.star,
-                  color: accentColor,
+                  color: AppColors.amber,
                   size: 20,
                 ),
               ],
@@ -102,7 +103,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
-                      side: const BorderSide(color: Colors.transparent),
+                      side: const BorderSide(color: AppColors.transparent),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -112,7 +113,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                     widget.data.title,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: Colors.black,
+                      color: AppColors.borders,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -121,7 +122,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                   Text(
                     widget.data.providerName,
                     style: theme.textTheme.titleMedium
-                        ?.copyWith(color: Colors.grey[700]),
+                        ?.copyWith(color: AppColors.gray),
                   ),
                   const SizedBox(height: 24),
 
@@ -135,7 +136,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                   Text(
                     widget.data.description,
                     style: theme.textTheme.bodyLarge
-                        ?.copyWith(color: Colors.black87, height: 1.5),
+                        ?.copyWith(color: AppColors.borders, height: 1.5),
                   ),
                 ],
               ),
@@ -146,7 +147,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
       ),
       // --- BOTÓN DE CONTACTAR ---
       bottomNavigationBar: Container(
-        color: Colors.white,
+        color: AppColors.backgroundWhite,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         // Usamos SafeArea para evitar la barra inferior del sistema
         child: SafeArea(
@@ -178,7 +179,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: AppColors.backgroundWhite,
               ),
             ),
           ),
@@ -219,14 +220,26 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color.fromRGBO(59, 96, 125, 0.9),
+              color: AppColors.primary,
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white, // Color del contorno
+                width: 2.0,          // Grosor del contorno
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Text(
               '\$ ${widget.data.price}',
               style: const TextStyle(
-                color: Colors.white,
+                color: AppColors.backgroundWhite,
                 fontWeight: FontWeight.bold,
+                
               ),
             ),
           ),
@@ -278,8 +291,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       decoration: BoxDecoration(
                         color: index == _currentIndex
-                            ? Colors.white
-                            : Colors.white.withOpacity(0.5),
+                            ? AppColors.backgroundWhite
+                            : AppColors.backgroundWhite.withOpacity(0.5),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -330,12 +343,12 @@ class _ImageArrow extends StatelessWidget {
           width: 32,
           height: 32,
           decoration: const BoxDecoration(
-            color: Colors.black54,
+            color: AppColors.borders,
             shape: BoxShape.circle,
           ),
           child: Icon(
             icon,
-            color: Colors.white,
+            color: AppColors.backgroundWhite,
             size: 16,
           ),
         ),

@@ -1,0 +1,2 @@
+C:/Users/nicog/TratoHecho/Trato-Hecho-App/android/app/.cxx/Debug/5n1v451k/x86/CMakeFiles/edit_cache.dir
+C:/Users/nicog/TratoHecho/Trato-Hecho-App/android/app/.cxx/Debug/5n1v451k/x86/CMakeFiles/rebuild_cache.dir

@@ -4,9 +4,14 @@ class AppColors {
   // Colores principales
   static const Color primary = Color(0xFF3B607D); // Azul profundo
   static const Color secondary = Color(0xFF00BFFF); // Azul cian
-
   static const Color accent = Color(0xFFFF6B6B); // Coral claro
   static const Color borders = Color.fromARGB(255, 0, 0, 0); // Amarillo dorado
+  static const Color transparent = Color(0x00000000);
+  static const Color gray = Color(0xFF616161); // Gris
+  static const Color lightGray = Color(0xFFEEEEEE); // Gris claro
+  static const Color amber = Color(0xFFFFC107); // Gris oscuro
+  static const Color chatAzulClaro = Color(0xFFADCAE2); // Verde
+  static const Color chatAzulOscuro = Color(0xFF003366); // Azul oscuro
 
   //Modo oscuro
   static const Color darkText = Color(0xFFFFFFFF);

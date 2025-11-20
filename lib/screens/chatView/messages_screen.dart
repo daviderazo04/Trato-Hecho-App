@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 // --- IMPORTAMOS LA PANTALLA DE CHAT ---
 import 'chat_detail_screen.dart';
+import '../../config/appColors.dart';
 
 // --- CAMBIO 1: Añadimos un callback al constructor ---
 class MessagesScreen extends StatefulWidget {
@@ -162,7 +163,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   borderSide: BorderSide.none, // Sin borde
                 ),
                 filled: true, // Con fondo relleno
-                fillColor: Colors.grey[200], // Color de fondo gris claro
+                fillColor: AppColors.lightGray, // Color de fondo gris claro
               ),
             ),
           ),
@@ -225,7 +226,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       print(
                           'Error al cargar la imagen ${item["name"]}: $exception');
                     },
-                    backgroundColor: Colors.grey[200], // Fondo si no carga
+                    backgroundColor: AppColors.lightGray, // Fondo si no carga
                   ),
 
                   // 'title' es el texto principal
@@ -238,7 +239,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   subtitle: Text(
                     item["message"],
                     style: TextStyle(
-                      color: hasUnread ? Colors.black : Colors.grey[600],
+                      color: hasUnread ? AppColors.borders : AppColors.gray,
                       fontWeight:
                           hasUnread ? FontWeight.bold : FontWeight.normal,
                     ),
@@ -251,15 +252,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
                               8), // Relleno dentro del círculo
                           decoration: BoxDecoration(
                             color: hasUnread
-                                ? const Color.fromARGB(255, 26, 188, 156)
-                                : Colors.grey[300],
+                                ? AppColors.notificacion
+                                : AppColors.lightGray,
                             shape: BoxShape.circle,
                           ),
                           child: Text(
                             item["count"].toString(),
                             style: TextStyle(
                               color:
-                                  hasUnread ? Colors.white : Colors.grey[700],
+                                  hasUnread ? AppColors.backgroundWhite : AppColors.gray,
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                             ),

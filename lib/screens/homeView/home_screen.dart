@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'service_detail_screen.dart';
+import '../../config/appColors.dart';
 
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({super.key});
@@ -141,7 +142,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                     padding: const EdgeInsets.only(bottom: 20),
                     child: _ServiceCard(
                       data: service,
-                      accentColor: accentColor,
+                      accentColor: AppColors.amber,
                       textTheme: theme.textTheme,
                     ),
                   ),
