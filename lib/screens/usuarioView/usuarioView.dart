@@ -6,6 +6,7 @@ import '../../config/appColors.dart';
 import 'edit_profile_screen.dart';
 import '../../screens/welcomeView/welcome_screen.dart';
 import '../usuarioView/recent_deals_screen.dart';
+import '../usuarioView/favorites_screen.dart';
 
 // --- SERVICE DUMMIES (Keep your imports) ---
 class NewServiceScreen extends StatelessWidget {
@@ -236,7 +237,13 @@ class _UsuarioViewState extends State<UsuarioView> {
                 _buildMenuItem(
                   icon: Icons.favorite_border,
                   text: 'Favoritos',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const FavoritesScreen()),
+                    );
+                  },
                   isDarkMode: isDarkMode,
                 ),
 
