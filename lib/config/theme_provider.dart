@@ -2,63 +2,54 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider extends ChangeNotifier {
-  bool _isDarkMode = false;
-  // 1. Add text scale variable (1.0 is normal size)
+  bool _isDarkMode;
   double _textScaleFactor = 1.0;
-  String _currentFontSizeLabel = '14 pt'; // To keep track of the dropdown value
+  String _currentFontSizeLabel;
 
   bool get isDarkMode => _isDarkMode;
   double get textScaleFactor => _textScaleFactor;
   String get currentFontSizeLabel => _currentFontSizeLabel;
 
-  ThemeProvider() {
-    _loadTheme();
+  // Constructor now requires initial values
+  ThemeProvider({required bool isDark, required String fontSizeLabel})
+      : _isDarkMode = isDark,
+        _currentFontSizeLabel = fontSizeLabel {
+    // Apply the font size logic immediately upon creation
+    _applyFontSize(fontSizeLabel);
   }
 
   void toggleTheme(bool isDark) async {
     _isDarkMode = isDark;
     notifyListeners();
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
     prefs.setBool('isDarkMode', isDark);
   }
 
-  // 2. Logic to change font size
   void setFontSize(String label) async {
-    _currentFontSizeLabel = label;
+    _applyFontSize(label);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('fontSizeLabel', label);
+  }
 
-    // Map the label to a scale factor
+  // Helper to just calculate the scale (separated from saving logic)
+  void _applyFontSize(String label) {
+    _currentFontSizeLabel = label;
     switch (label) {
       case '12 pt':
-        _textScaleFactor = 0.85; // Small
+        _textScaleFactor = 0.85;
         break;
       case '14 pt':
-        _textScaleFactor = 1.0; // Normal
+        _textScaleFactor = 1.0;
         break;
       case '16 pt':
-        _textScaleFactor = 1.15; // Large
+        _textScaleFactor = 1.15;
         break;
       case '18 pt':
-        _textScaleFactor = 1.30; // Extra Large
+        _textScaleFactor = 1.30;
         break;
       default:
         _textScaleFactor = 1.0;
     }
-
-    notifyListeners();
-
-    // Optional: Save to preferences
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setString('fontSizeLabel', label);
-  }
-
-  void _loadTheme() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    _isDarkMode = prefs.getBool('isDarkMode') ?? false;
-
-    // Load saved font size
-    String savedLabel = prefs.getString('fontSizeLabel') ?? '14 pt';
-    setFontSize(savedLabel); // This will set the scale factor too
-
-    notifyListeners();
   }
 }

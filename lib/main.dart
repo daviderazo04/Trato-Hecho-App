@@ -1,39 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Import your files
 import 'screens/chatView/messages_screen.dart';
 import 'widgets/custom_bottom_nav_bar.dart';
 import 'screens/homeView/home_screen.dart';
 import 'screens/searchView/search_screen.dart';
-
-// Importamos tu nueva vista de usuario
 import 'screens/usuarioView/usuarioView.dart';
 import 'config/theme_provider.dart';
-
-import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/welcomeView/welcome_screen.dart';
 
 void main() async {
-  // 2. Ensure binding is initialized because we are using async code in main
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 3. Check Shared Preferences
+  // 1. Load ALL preferences here, before the app starts
   final prefs = await SharedPreferences.getInstance();
-  // Try to get the boolean. If it doesn't exist (first time), return false.
+
   final bool seenWelcome = prefs.getBool('seenWelcome') ?? false;
+
+  // --- FIX: Load these two values instead of hardcoding them ---
+  final bool isDark = prefs.getBool('isDarkMode') ?? false;
+  final String fontSizeLabel = prefs.getString('fontSizeLabel') ?? '14 pt';
 
   runApp(
     ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
-      // 4. Pass the 'seenWelcome' flag to MyApp
+      // 2. Pass the LOADED values to the Provider constructor
+      create: (_) =>
+          ThemeProvider(isDark: isDark, fontSizeLabel: fontSizeLabel),
       child: MyApp(startWithWelcome: !seenWelcome),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  // 5. Accept the flag in the constructor
   final bool startWithWelcome;
 
   const MyApp({super.key, required this.startWithWelcome});
@@ -45,30 +45,33 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'TratoHecho',
       theme: ThemeData(
+        // This ensures system bars (statusbar/nav bar) match the theme
+        brightness:
+            themeProvider.isDarkMode ? Brightness.dark : Brightness.light,
         primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: Colors.white,
+        // This ensures the scaffold background changes globally
+        scaffoldBackgroundColor:
+            themeProvider.isDarkMode ? const Color(0xFF213748) : Colors.white,
         fontFamily: 'Sora',
       ),
       debugShowCheckedModeBanner: false,
 
-      // 2. THIS IS THE MAGIC PART
+      // This applies the FONT SIZE globally to all screens
       builder: (context, child) {
-        // This wraps every page in the app
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(
-            // We use linear scaling based on our provider
             textScaler: TextScaler.linear(themeProvider.textScaleFactor),
           ),
           child: child!,
         );
       },
 
-      // 6. Decide which screen to show first based on the flag
       home: startWithWelcome ? const WelcomeScreen() : const MainNavigator(),
     );
   }
 }
 
+// ... (Your MainNavigator class remains exactly the same) ...
 class MainNavigator extends StatefulWidget {
   const MainNavigator({super.key});
 
@@ -77,18 +80,10 @@ class MainNavigator extends StatefulWidget {
 }
 
 class _MainNavigatorState extends State<MainNavigator> {
-  // Variable para guardar el índice de la pestaña seleccionada
   int _selectedIndex = 0;
-
-  // Note: Ensure HomeFeedScreen is imported or defined
-
-  // --- CAMBIO 1: Creamos una variable de estado para la notificación ---
   bool _hasUnreadMessages = false;
 
-  // --- CAMBIO 2: Creamos la función que recibirá el aviso ---
   void _updateUnreadStatus(bool hasUnread) {
-    // Usamos setState para guardar el valor y redibujar si es necesario
-    // (Añadimos 'mounted' por seguridad)
     if (mounted) {
       setState(() {
         _hasUnreadMessages = hasUnread;
@@ -96,23 +91,18 @@ class _MainNavigatorState extends State<MainNavigator> {
     }
   }
 
-  // --- CAMBIO 3: La lista de widgets ya NO puede ser 'static final' ---
-  // Debe ser una variable de la clase para poder acceder a '_updateUnreadStatus'
   late final List<Widget> _widgetOptions;
 
   @override
   void initState() {
     super.initState();
-    // Inicializamos la lista aquí, pasando el callback a MessagesScreen
     _widgetOptions = <Widget>[
-      HomeFeedScreen(), // Pantalla 0: Home
-      const SearchScreen(), // Pantalla 1: Búsqueda
+      HomeFeedScreen(),
+      const SearchScreen(),
       MessagesScreen(
-        // Pantalla 2: Mensajes
-        // Le pasamos nuestra función de callback
         onUnreadStatusChanged: _updateUnreadStatus,
       ),
-      const UsuarioView(), // Pantalla 3: Perfil
+      const UsuarioView(),
     ];
   }
 
@@ -129,13 +119,9 @@ class _MainNavigatorState extends State<MainNavigator> {
         index: _selectedIndex,
         children: _widgetOptions,
       ),
-
-      // Usamos nuestro widget CustomBottomNavBar y le pasamos el estado
-
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        // --- CAMBIO 4: Pasamos el estado de "no leídos" a la barra ---
         hasUnreadMessages: _hasUnreadMessages,
       ),
     );
