@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // Import Provider
 // Importamos el modelo de datos que está en 'home_screen.dart'
 import 'home_screen.dart' show ServiceCardData;
-// --- CAMBIO 1: Importamos la pantalla de chat ---
-// (Asumiendo que está en 'lib/screens/chatView/chat_detail_screen.dart')
+// Importamos la pantalla de chat
 import '../chatView/chat_detail_screen.dart';
 import '../../config/theme_provider.dart';
 import '../../config/appColors.dart';
@@ -38,21 +38,41 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     });
   }
 
+  // --- HELPERS DE COLOR ---
+  Color _backgroundColor(bool isDark) =>
+      isDark ? AppColors.backgroundDark : AppColors.backgroundWhite;
+
+  Color _textColor(bool isDark) =>
+      isDark ? AppColors.darkText : AppColors.borders;
+
+  Color _subTextColor(bool isDark) =>
+      isDark ? Colors.grey[400]! : AppColors.gray;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Accedemos al estado global
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final bool isDarkMode = themeProvider.isDarkMode;
+
+    // Colores base
     final Color accentColor = AppColors.primary;
-    final Color contactButtonColor = AppColors.notificacion;
+    final Color contactButtonColor = AppColors.notificacion; // El verde
+    
+    // --- NUEVO COLOR SOLICITADO ---
+    // Un azul mucho más oscuro para el botón y precio en modo oscuro
+    final Color darkBlueColor = const Color.fromRGBO(7, 39, 64, 1);
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundWhite,
+      backgroundColor: _backgroundColor(isDarkMode),
       // --- APPBAR PERSONALIZADA ---
       appBar: AppBar(
-        backgroundColor: AppColors.backgroundWhite,
+        backgroundColor: _backgroundColor(isDarkMode),
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.borders),
+          icon: Icon(Icons.arrow_back,
+              color: isDarkMode ? Colors.white : AppColors.borders),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -62,14 +82,14 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
               children: [
                 Text(
                   widget.data.rating.toStringAsFixed(1),
-                  style: const TextStyle(
-                    color: AppColors.borders,
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.white : AppColors.borders,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
                 ),
                 const SizedBox(width: 4),
-                Icon(
+                const Icon(
                   Icons.star,
                   color: AppColors.amber,
                   size: 20,
@@ -85,7 +105,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // --- CARRUSEL DE IMÁGENES ---
-            _buildImageCarousel(context),
+            // Pasamos el nuevo color oscuro al carrusel
+            _buildImageCarousel(context, isDarkMode, darkBlueColor),
 
             // --- CONTENIDO DEBAJO DEL CARRUSEL ---
             Padding(
@@ -93,17 +114,26 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- CATEGORÍA ---
+                  // --- CATEGORÍA (El Chip Verde) ---
                   Chip(
                     label: Text(widget.data.category),
-                    backgroundColor: accentColor.withOpacity(0.1),
+                    // LÓGICA: Si es oscuro, fondo VERDE. Si es claro, azul suave.
+                    backgroundColor: isDarkMode
+                        ? contactButtonColor // Verde sólido
+                        : accentColor.withOpacity(0.1),
                     labelStyle: TextStyle(
-                      color: accentColor,
+                      // LÓGICA: Si es oscuro, texto BLANCO. Si es claro, azul.
+                      color: isDarkMode ? Colors.white : accentColor,
                       fontWeight: FontWeight.w600,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
-                      side: const BorderSide(color: AppColors.transparent),
+                      // --- CAMBIO AQUÍ: Borde blanco en modo oscuro ---
+                      side: BorderSide(
+                        color: isDarkMode ? Colors.white : Colors.transparent,
+                        width: 1.5, // Un borde sutil pero visible
+                      ),
+                      // -----------------------------------------------
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -113,7 +143,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                     widget.data.title,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: AppColors.borders,
+                      color: _textColor(isDarkMode),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -121,65 +151,75 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                   // --- PROVEEDOR ---
                   Text(
                     widget.data.providerName,
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(color: AppColors.gray),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: _subTextColor(isDarkMode),
+                    ),
                   ),
                   const SizedBox(height: 24),
 
                   // --- DESCRIPCIÓN ---
                   Text(
                     'Descripción',
-                    style: theme.textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: _textColor(isDarkMode),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     widget.data.description,
-                    style: theme.textTheme.bodyLarge
-                        ?.copyWith(color: AppColors.borders, height: 1.5),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: isDarkMode ? Colors.grey[300] : AppColors.borders,
+                      height: 1.5,
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 100), // Espacio para el botón de contacto
+            const SizedBox(height: 100), // Espacio extra al final
           ],
         ),
       ),
       // --- BOTÓN DE CONTACTAR ---
       bottomNavigationBar: Container(
-        color: AppColors.backgroundWhite,
+        color: _backgroundColor(isDarkMode),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        // Usamos SafeArea para evitar la barra inferior del sistema
         child: SafeArea(
           child: ElevatedButton(
             onPressed: () {
-              // --- CAMBIO 2: Lógica de navegación ---
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => ChatDetailScreen(
-                    // Mapeamos los datos del servicio a la pantalla de chat
                     chatName: widget.data.title,
                     chatSubtitle: widget.data.providerName,
                     rating: widget.data.rating.toStringAsFixed(1),
                   ),
                 ),
               );
-              // --- FIN DEL CAMBIO ---
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: contactButtonColor,
+              // LÓGICA DEL BOTÓN:
+              // Oscuro: Fondo AZUL OSCURO NUEVO con BORDE BLANCO
+              // Claro: Fondo VERDE sólido sin borde
+              backgroundColor: isDarkMode
+                  ? darkBlueColor // El nuevo azul oscuro
+                  : contactButtonColor, // Verde
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30),
+                side: isDarkMode
+                    ? const BorderSide(color: Colors.white, width: 2.0) // Borde Blanco
+                    : BorderSide.none,
               ),
+              elevation: isDarkMode ? 0 : 2,
             ),
             child: const Text(
               'Contactar',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppColors.backgroundWhite,
+                color: Colors.white, // Texto siempre blanco
               ),
             ),
           ),
@@ -189,7 +229,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   }
 
   // --- WIDGET PARA EL CARRUSEL DE IMÁGENES ---
-  Widget _buildImageCarousel(BuildContext context) {
+  Widget _buildImageCarousel(BuildContext context, bool isDarkMode, Color darkBlueColor) {
     final hasImages = widget.data.imageUrls.isNotEmpty;
     final imageCount = hasImages ? widget.data.imageUrls.length : 1;
 
@@ -203,7 +243,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
             onPageChanged: _handlePageChanged,
             itemBuilder: (context, index) {
               if (!hasImages) {
-                return Container(color: Colors.grey.shade200); // Placeholder
+                return Container(color: Colors.grey.shade200);
               }
               return Image.network(
                 widget.data.imageUrls[index],
@@ -213,18 +253,21 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           ),
         ),
 
-        // --- PRECIO ---
+        // --- PRECIO (Con borde blanco siempre) ---
         Positioned(
           bottom: 12,
           right: 12,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: AppColors.primary,
+              // Aquí usamos el color: Azul Oscuro nuevo o Azul Primario (según preferencia o tema)
+              // Para ser consistentes con tu petición, usaré el azul oscuro nuevo en ambos modos
+              // o solo en dark mode si prefieres. Aquí lo pongo fijo al darkBlueColor para que se vea como pides.
+              color: darkBlueColor, 
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: Colors.white, // Color del contorno
-                width: 2.0,          // Grosor del contorno
+                color: Colors.white, // Borde blanco
+                width: 2.0,
               ),
               boxShadow: [
                 BoxShadow(
@@ -239,13 +282,12 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
               style: const TextStyle(
                 color: AppColors.backgroundWhite,
                 fontWeight: FontWeight.bold,
-                
               ),
             ),
           ),
         ),
 
-        // --- FLECHAS DE NAVEGACIÓN (Izquierda) ---
+        // --- FLECHAS DE NAVEGACIÓN ---
         Positioned.fill(
           child: Align(
             alignment: Alignment.centerLeft,
@@ -259,7 +301,6 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
             ),
           ),
         ),
-        // --- FLECHAS DE NAVEGACIÓN (Derecha) ---
         Positioned.fill(
           child: Align(
             alignment: Alignment.centerRight,
@@ -343,12 +384,12 @@ class _ImageArrow extends StatelessWidget {
           width: 32,
           height: 32,
           decoration: const BoxDecoration(
-            color: AppColors.borders,
+            color: Colors.black45,
             shape: BoxShape.circle,
           ),
           child: Icon(
             icon,
-            color: AppColors.backgroundWhite,
+            color: Colors.white,
             size: 16,
           ),
         ),
@@ -356,4 +397,3 @@ class _ImageArrow extends StatelessWidget {
     );
   }
 }
-
