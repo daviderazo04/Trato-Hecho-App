@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'; // Import Provider
-// Assuming your file structure, import the provider created in Step 2
 import '../../config/theme_provider.dart';
+// --- CAMBIO 1: Importamos UserProvider ---
+import '../../config/user_provider.dart';
 import '../../config/appColors.dart';
 import 'edit_profile_screen.dart';
 import '../../screens/welcomeView/welcome_screen.dart';
@@ -13,7 +14,7 @@ class NewServiceScreen extends StatelessWidget {
   const NewServiceScreen({Key? key}) : super(key: key);
   @override
   Widget build(BuildContext context) =>
-      Scaffold(appBar: AppBar(title: Text("New Service")));
+      Scaffold(appBar: AppBar(title: const Text("New Service")));
 }
 
 class UsuarioView extends StatefulWidget {
@@ -26,8 +27,6 @@ class UsuarioView extends StatefulWidget {
 class _UsuarioViewState extends State<UsuarioView> {
   final ScrollController _scrollController = ScrollController();
 
-  // Local State (Supplier mode is still local to this screen usually,
-  // but DarkMode is now removed from here)
   bool _isSupplierMode = false;
   String _selectedFontSize = '16 pt';
 
@@ -46,7 +45,6 @@ class _UsuarioViewState extends State<UsuarioView> {
   }
 
   // --- Helper to get dynamic colors based on Global Dark Mode ---
-  // We pass the boolean 'isDark' into these getters now
   Color _backgroundColor(bool isDark) =>
       isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
 
@@ -65,10 +63,12 @@ class _UsuarioViewState extends State<UsuarioView> {
   Widget build(BuildContext context) {
     const double scrollAmount = 156.0;
 
-    // 1. ACCESS THE GLOBAL VARIABLE HERE
+    // 1. ACCESS THE GLOBAL VARIABLES
     final themeProvider = Provider.of<ThemeProvider>(context);
+    // --- CAMBIO 2: Obtenemos el UserProvider (listen: false porque solo ejecutamos funciones) ---
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    
     final bool isDarkMode = themeProvider.isDarkMode;
-    // GET GLOBAL FONT SIZE LABEL
     final String currentFontSize = themeProvider.currentFontSizeLabel;
 
     return Scaffold(
@@ -101,9 +101,9 @@ class _UsuarioViewState extends State<UsuarioView> {
                           ),
                         ],
                       ),
-                      child: CircleAvatar(
+                      child: const CircleAvatar(
                         radius: 42,
-                        backgroundImage: const NetworkImage(
+                        backgroundImage: NetworkImage(
                           'https://www.jreventos.com.ar/uploads/servicio-imagen/big/af332f5af35068cd6a8935e65c7f0a5c.jpeg',
                         ),
                       ),
@@ -144,8 +144,8 @@ class _UsuarioViewState extends State<UsuarioView> {
                     borderRadius: BorderRadius.circular(30.0),
                     border: Border.all(
                       color: isDarkMode
-                          ? AppColors.darkBorders // Blue border when Provider
-                          : Colors.transparent, // Transparent when Client
+                          ? AppColors.darkBorders 
+                          : Colors.transparent, 
                       width: 2.0,
                     ),
                     boxShadow: [
@@ -224,9 +224,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                   icon: Icons.access_time,
                   text: 'Tratos Recientes',
                   onTap: () {
-                    // --- CORRECT WAY ---
                     Navigator.push(
-                      // Use push, NOT pushReplacement
                       context,
                       MaterialPageRoute(
                           builder: (context) => const RecentDealsScreen()),
@@ -405,9 +403,8 @@ class _UsuarioViewState extends State<UsuarioView> {
                       Transform.scale(
                         scale: 0.8,
                         child: Switch(
-                          value: isDarkMode, // Uses global state
+                          value: isDarkMode,
                           onChanged: (val) {
-                            // CALLS GLOBAL FUNCTION
                             themeProvider.toggleTheme(val);
                           },
                           activeColor: Colors.white,
@@ -447,7 +444,6 @@ class _UsuarioViewState extends State<UsuarioView> {
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
-                            // 1. Bind Value to Provider
                             value: currentFontSize,
                             icon: Icon(Icons.keyboard_arrow_down,
                                 color: _textColor(isDarkMode)),
@@ -457,7 +453,6 @@ class _UsuarioViewState extends State<UsuarioView> {
                             style: TextStyle(
                               color: _textColor(isDarkMode),
                               fontWeight: FontWeight.bold,
-                              // Prevent this text from scaling endlessly inside itself
                               fontSize: 14,
                             ),
                             items: ['12 pt', '14 pt', '16 pt', '18 pt']
@@ -469,7 +464,6 @@ class _UsuarioViewState extends State<UsuarioView> {
                             }).toList(),
                             onChanged: (newValue) {
                               if (newValue != null) {
-                                // 2. Call Provider Method
                                 themeProvider.setFontSize(newValue);
                               }
                             },
@@ -485,10 +479,10 @@ class _UsuarioViewState extends State<UsuarioView> {
                   icon: Icons.logout,
                   text: 'Cerrar Sesion',
                   onTap: () {
-                    // 1. Update Global State to Logged Out
-                    themeProvider.logout();
+                    // --- CAMBIO 3: Limpiamos datos de AMBOS providers ---
+                    themeProvider.logout(); // Limpia estado visual (isLoggedIn)
+                    userProvider.logout(); // Limpia datos del usuario (userId = null)
 
-                    // 2. Navigate to Welcome Screen and remove all previous screens
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
                         builder: (context) => const WelcomeScreen(),
@@ -508,8 +502,7 @@ class _UsuarioViewState extends State<UsuarioView> {
     );
   }
 
-  // --- Helper Widgets (Updated to accept isDarkMode) ---
-
+  // --- Helper Widgets ---
   Widget _buildSectionTitle(String title, bool isDarkMode) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -589,7 +582,7 @@ class _UsuarioViewState extends State<UsuarioView> {
   }
 }
 
-// --- Service Card (Unchanged) ---
+// --- Service Card ---
 class _ServiceCard extends StatelessWidget {
   final String imageUrl;
   final String serviceName;

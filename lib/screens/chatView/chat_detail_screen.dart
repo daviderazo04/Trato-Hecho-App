@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_provider.dart';
+import '../../config/user_provider.dart';
 import '../../config/appColors.dart';
+import '../../services/chat_service.dart';
+import '../../models/chat_models.dart';
 
 class ChatDetailScreen extends StatefulWidget {
+  final int? conId;       // ID de Conversación (Si viene del Inbox)
+  final int? receiverId;  // ID del otro usuario (Si viene de "Contactar")
   final String chatName;
   final String chatSubtitle;
   final String rating;
 
   const ChatDetailScreen({
     super.key,
+    this.conId,
+    this.receiverId,
     required this.chatName,
     required this.chatSubtitle,
     required this.rating,
@@ -20,14 +27,77 @@ class ChatDetailScreen extends StatefulWidget {
 }
 
 class _ChatDetailScreenState extends State<ChatDetailScreen> {
+  final ChatService _chatService = ChatService();
   final _textController = TextEditingController();
-  List<Map<String, String>> messages = [
-    {"sender": "me", "text": "¡Buenas tardes! ¿Están disponibles para el sábado?"},
-    {"sender": "other", "text": "Hola, ¡claro que sí! ¿A qué hora sería?"},
-    // ... más mensajes
-  ];
+  
+  List<ChatMessage> _messages = [];
+  bool _isLoading = true;
+  int? _currentConId; // Para guardar el ID si se crea uno nuevo
 
-  // Helpers de color
+  @override
+  void initState() {
+    super.initState();
+    _currentConId = widget.conId;
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final myUserId = Provider.of<UserProvider>(context, listen: false).userId;
+    if (_currentConId == null || myUserId == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final msgs = await _chatService.getHistory(_currentConId!, myUserId);
+      if (mounted) {
+        setState(() {
+          _messages = msgs;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("Error history: $e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleSendPressed() async {
+    final text = _textController.text.trim();
+    if (text.isEmpty) return;
+
+    final myUserId = Provider.of<UserProvider>(context, listen: false).userId;
+    if (myUserId == null) return;
+
+    // Limpiamos input para efecto inmediato
+    _textController.clear();
+
+    try {
+      // Enviamos al backend
+      final newMessage = await _chatService.sendMessage(
+        senderId: myUserId,
+        receiverId: widget.receiverId, // Puede ser null si ya tenemos conId
+        conId: _currentConId,          // Puede ser null si es nuevo
+        content: text,
+      );
+
+      if (newMessage != null && mounted) {
+        setState(() {
+          _messages.add(newMessage);
+          // Si era un chat nuevo, la API probablemente creó la sala, 
+          // pero para simplificar aquí solo añadimos el mensaje localmente.
+          // En una app real, la respuesta debería incluir el nuevo conId.
+        });
+      }
+    } catch (e) {
+      print("Error sending: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al enviar mensaje")),
+      );
+    }
+  }
+
+  // ... (Helpers de color iguales que antes) ...
   Color _backgroundColor(bool isDark) => isDark ? AppColors.backgroundDark : Colors.white;
   Color _appBarColor(bool isDark) => isDark ? AppColors.backgroundDark : Colors.white;
   Color _textColor(bool isDark) => isDark ? AppColors.darkText : Colors.black;
@@ -37,25 +107,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Color _inputColor(bool isDark) => isDark ? AppColors.darkButtons : Colors.white;
 
   @override
-  void dispose() {
-    _textController.dispose();
-    super.dispose();
-  }
-
-  void _handleSendPressed() {
-    final text = _textController.text;
-    if (text.trim().isNotEmpty) {
-      setState(() {
-        messages.add({"sender": "me", "text": text});
-      });
-      _textController.clear();
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final userProvider = Provider.of<UserProvider>(context);
     final bool isDarkMode = themeProvider.isDarkMode;
+    final int myUserId = userProvider.userId ?? 0;
 
     return Scaffold(
       backgroundColor: _backgroundColor(isDarkMode),
@@ -117,33 +173,37 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final message = messages[index];
-                final bool isMe = message["sender"] == "me";
-                return Align(
-                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 6.0),
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-                    decoration: BoxDecoration(
-                      color: isMe ? _bubbleMeColor(isDarkMode) : _bubbleOtherColor(isDarkMode),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      message["text"]!,
-                      style: TextStyle(
-                        color: isMe
-                            ? (isDarkMode ? Colors.white : Colors.black87)
-                            : Colors.white,
-                      ),
-                    ),
+            child: _isLoading
+                ? Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      // Comparamos IDs reales
+                      final bool isMe = message.senderId == myUserId;
+                      
+                      return Align(
+                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 6.0),
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                          decoration: BoxDecoration(
+                            color: isMe ? _bubbleMeColor(isDarkMode) : _bubbleOtherColor(isDarkMode),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            message.contenido,
+                            style: TextStyle(
+                              color: isMe
+                                  ? (isDarkMode ? Colors.white : Colors.black87)
+                                  : Colors.white,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
           _buildTextInputArea(isDarkMode),
         ],

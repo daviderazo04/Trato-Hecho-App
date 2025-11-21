@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_provider.dart';
+import '../../config/user_provider.dart'; // --- IMPORTANTE ---
 import '../../config/appColors.dart';
-import '../usuarioView/usuarioView.dart';
+import '../../main.dart'; // Importamos para navegar a MainNavigator
 import '../auth/signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -18,12 +19,55 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _userController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
 
+  // Función para manejar el login
+  void _handleLogin() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false); // Para mantener tu lógica de theme
+
+    // Validar campos vacíos
+    if (_userController.text.isEmpty || _passController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Por favor llena todos los campos")),
+      );
+      return;
+    }
+
+    // Llamar a la API a través del Provider
+    final result = await userProvider.login(
+      _userController.text.trim(),
+      _passController.text.trim(),
+    );
+
+    if (result['success']) {
+      // 1. Actualizar estado de tema (como tenías antes)
+      themeProvider.login();
+
+      // 2. Navegar a la pantalla principal (MainNavigator)
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainNavigator()),
+        );
+      }
+    } else {
+      // Mostrar error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final userProvider = Provider.of<UserProvider>(context); // Escuchamos cambios para el loading
     final bool isDarkMode = themeProvider.isDarkMode;
 
-    // Background Logic
     final Color backgroundColor =
         isDarkMode ? AppColors.backgroundDark : Colors.white;
     final Color textColor = isDarkMode ? Colors.white : Colors.black;
@@ -32,14 +76,12 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: backgroundColor,
       body: Stack(
         children: [
-          // --- 1. SCROLLABLE CONTENT ---
           Positioned.fill(
             child: SingleChildScrollView(
               padding: EdgeInsets.zero,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // TOP IMAGE (Party Illustration)
                   const SizedBox(height: 40),
                   Center(
                     child: Image.network(
@@ -56,31 +98,24 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  // TITLE
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: Text(
                       "Hey,\nInicia Sesion ahora.",
                       style: TextStyle(
-                        fontSize: 24, // Reduced from 28
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: textColor,
                         height: 1.2,
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 30),
-
-                  // INPUTS
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: Column(
                       children: [
-                        // User Input
                         _buildInput(
                           controller: _userController,
                           hint: "Usuario",
@@ -88,8 +123,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           isDarkMode: isDarkMode,
                         ),
                         const SizedBox(height: 16),
-
-                        // Password Input
                         _buildInput(
                           controller: _passController,
                           hint: "Contraseña",
@@ -103,10 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             });
                           },
                         ),
-
                         const SizedBox(height: 16),
-
-                        // Remember Me Checkbox
                         Row(
                           children: [
                             SizedBox(
@@ -141,22 +171,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 30),
-
-                        // LOGIN BUTTON
+                        
+                        // --- LOGIN BUTTON ---
                         SizedBox(
                           width: double.infinity,
                           height: 50,
                           child: ElevatedButton(
-                            onPressed: () {
-                              // --- LOGIN LOGIC ---
-                              // 1. Set logged in state
-                              themeProvider.login();
-
-                              // 2. Navigate to Profile (Remove back history so they can't go back to login)
-                              Navigator.pop(context);
-                            },
+                            onPressed: userProvider.isLoading ? null : _handleLogin, // Deshabilita si carga
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
@@ -169,17 +191,24 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               elevation: 5,
                             ),
-                            child: const Text(
-                              "Iniciar Sesion",
-                              style: TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
+                            child: userProvider.isLoading
+                                ? const SizedBox( // Spinner de carga
+                                    height: 24,
+                                    width: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    "Iniciar Sesion",
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold),
+                                  ),
                           ),
                         ),
-
                         const SizedBox(height: 20),
-
-                        // REGISTER LINK
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -193,7 +222,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             GestureDetector(
                               onTap: () {
-                                // Navigate to Register
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -215,27 +243,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-
-                  // --- SPACER REPLACEMENT ---
                   const SizedBox(height: 150),
                 ],
               ),
             ),
           ),
-
-          // --- 2. BOTTOM DECORATION (Fixed on top of ScrollView) ---
+          // ... (Tu decoración inferior se mantiene igual) ...
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: IgnorePointer(
-              // Allows touches to pass through transparent parts if needed
               child: SizedBox(
                 height: 120,
                 child: Stack(
                   alignment: Alignment.bottomLeft,
                   children: [
-                    // The Angled Strip
                     ClipPath(
                       clipper: BottomAngledClipper(),
                       child: Container(
@@ -244,8 +267,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: isDarkMode ? Colors.white : AppColors.primary,
                       ),
                     ),
-
-                    // The Cake Image
                     Positioned(
                       left: 20,
                       bottom: 20,
@@ -265,7 +286,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // --- CUSTOM INPUT WIDGET ---
   Widget _buildInput({
     required TextEditingController controller,
     required String hint,
@@ -275,7 +295,8 @@ class _LoginScreenState extends State<LoginScreen> {
     bool isPasswordVisible = false,
     VoidCallback? onVisibilityToggle,
   }) {
-    final Color fillColor = isDarkMode ? const Color(0xFF768088) : Colors.white;
+    final Color fillColor =
+        isDarkMode ? const Color(0xFF768088) : Colors.white;
     final Color borderColor = isDarkMode ? Colors.black54 : Colors.black;
     final Color iconColor = isDarkMode ? Colors.white : Colors.black;
     final Color textColor = isDarkMode ? Colors.white : Colors.black;
@@ -304,7 +325,9 @@ class _LoginScreenState extends State<LoginScreen> {
           suffixIcon: isPassword
               ? IconButton(
                   icon: Icon(
-                    isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                    isPasswordVisible
+                        ? Icons.visibility_off
+                        : Icons.visibility,
                     color: iconColor,
                   ),
                   onPressed: onVisibilityToggle,
