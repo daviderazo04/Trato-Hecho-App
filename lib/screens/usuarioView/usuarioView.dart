@@ -8,14 +8,7 @@ import 'edit_profile_screen.dart';
 import '../../screens/welcomeView/welcome_screen.dart';
 import '../usuarioView/recent_deals_screen.dart';
 import '../usuarioView/favorites_screen.dart';
-
-// --- SERVICE DUMMIES (Keep your imports) ---
-class NewServiceScreen extends StatelessWidget {
-  const NewServiceScreen({Key? key}) : super(key: key);
-  @override
-  Widget build(BuildContext context) =>
-      Scaffold(appBar: AppBar(title: const Text("New Service")));
-}
+import '../proveedorView/new_service_screen.dart';
 
 class UsuarioView extends StatefulWidget {
   const UsuarioView({Key? key}) : super(key: key);
@@ -67,7 +60,7 @@ class _UsuarioViewState extends State<UsuarioView> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     // --- CAMBIO 2: Obtenemos el UserProvider (listen: false porque solo ejecutamos funciones) ---
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    
+
     final bool isDarkMode = themeProvider.isDarkMode;
     final String currentFontSize = themeProvider.currentFontSizeLabel;
 
@@ -144,8 +137,8 @@ class _UsuarioViewState extends State<UsuarioView> {
                     borderRadius: BorderRadius.circular(30.0),
                     border: Border.all(
                       color: isDarkMode
-                          ? AppColors.darkBorders 
-                          : Colors.transparent, 
+                          ? AppColors.darkBorders
+                          : Colors.transparent,
                       width: 2.0,
                     ),
                     boxShadow: [
@@ -481,7 +474,8 @@ class _UsuarioViewState extends State<UsuarioView> {
                   onTap: () {
                     // --- CAMBIO 3: Limpiamos datos de AMBOS providers ---
                     themeProvider.logout(); // Limpia estado visual (isLoggedIn)
-                    userProvider.logout(); // Limpia datos del usuario (userId = null)
+                    userProvider
+                        .logout(); // Limpia datos del usuario (userId = null)
 
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
