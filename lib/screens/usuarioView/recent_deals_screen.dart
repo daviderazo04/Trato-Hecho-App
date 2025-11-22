@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_provider.dart';
 import '../../config/appColors.dart';
+import '../../main.dart';
 
 class RecentDealsScreen extends StatelessWidget {
   const RecentDealsScreen({Key? key}) : super(key: key);
@@ -104,7 +105,15 @@ class RecentDealsScreen extends StatelessWidget {
                         width: 200,
                         height: 45,
                         child: ElevatedButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const MainNavigator(initialIndex: 1),
+                              ),
+                            );
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,

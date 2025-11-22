@@ -79,14 +79,16 @@ class MyApp extends StatelessWidget {
 }
 
 class MainNavigator extends StatefulWidget {
-  const MainNavigator({super.key});
+  const MainNavigator({super.key, this.initialIndex = 0});
+
+  final int initialIndex;
 
   @override
   State<MainNavigator> createState() => _MainNavigatorState();
 }
 
 class _MainNavigatorState extends State<MainNavigator> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
   bool _hasUnreadMessages = false;
   final ChatService _chatService = ChatService();
   Timer? _pollingTimer; // Variable para el Timer
@@ -104,6 +106,7 @@ class _MainNavigatorState extends State<MainNavigator> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = widget.initialIndex;
     _widgetOptions = <Widget>[
       HomeFeedScreen(),
       const SearchScreen(),

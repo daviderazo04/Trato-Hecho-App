@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_provider.dart';
@@ -18,11 +20,18 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _rememberMe = false;
   final TextEditingController _userController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
+  bool _showWelcomeOverlay = false;
+  String? _welcomeMessage;
 
   // Función para manejar el login
   void _handleLogin() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false); // Para mantener tu lógica de theme
+    final themeProvider = Provider.of<ThemeProvider>(context,
+        listen: false); // Para mantener tu lógica de theme
+    setState(() {
+      _showWelcomeOverlay = false;
+      _welcomeMessage = null;
+    });
 
     // Validar campos vacíos
     if (_userController.text.isEmpty || _passController.text.isEmpty) {
@@ -42,12 +51,23 @@ class _LoginScreenState extends State<LoginScreen> {
       // 1. Actualizar estado de tema (como tenías antes)
       themeProvider.login();
 
-      // 2. Navegar a la pantalla principal (MainNavigator)
+      // 2. Mostrar animación de bienvenida antes de navegar
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MainNavigator()),
-        );
+        final String name =
+            userProvider.userName ?? _userController.text.trim();
+        setState(() {
+          _welcomeMessage = 'Bienvenido, $name';
+          _showWelcomeOverlay = true;
+        });
+
+        await Future.delayed(const Duration(milliseconds: 2500));
+
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MainNavigator()),
+          );
+        }
       }
     } else {
       // Mostrar error
@@ -65,7 +85,8 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final userProvider = Provider.of<UserProvider>(context); // Escuchamos cambios para el loading
+    final userProvider = Provider.of<UserProvider>(
+        context); // Escuchamos cambios para el loading
     final bool isDarkMode = themeProvider.isDarkMode;
 
     final Color backgroundColor =
@@ -84,8 +105,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SizedBox(height: 40),
                   Center(
-                    child: Image.network(
-                      'https://img.freepik.com/free-vector/hand-drawn-business-party-illustration_23-2149495494.jpg?w=1380&t=st=1709657000~exp=1709657600~hmac=6c5c0c9c9c9c9c9c9c9c9c9c9c9c9c9c',
+                    child: Image.asset(
+                      'assets/images/logInImage.png',
                       height: 220,
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
@@ -172,13 +193,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           ],
                         ),
                         const SizedBox(height: 30),
-                        
+
                         // --- LOGIN BUTTON ---
                         SizedBox(
                           width: double.infinity,
                           height: 50,
                           child: ElevatedButton(
-                            onPressed: userProvider.isLoading ? null : _handleLogin, // Deshabilita si carga
+                            onPressed: userProvider.isLoading
+                                ? null
+                                : _handleLogin, // Deshabilita si carga
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
@@ -192,7 +215,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               elevation: 5,
                             ),
                             child: userProvider.isLoading
-                                ? const SizedBox( // Spinner de carga
+                                ? const SizedBox(
+                                    // Spinner de carga
                                     height: 24,
                                     width: 24,
                                     child: CircularProgressIndicator(
@@ -281,6 +305,116 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
+          if (_showWelcomeOverlay)
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: true,
+                child: AnimatedOpacity(
+                  opacity: _showWelcomeOverlay ? 1 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Stack(
+                    children: [
+                      BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                        child: Container(
+                          color: Colors.black.withOpacity(0.25),
+                        ),
+                      ),
+                      Center(
+                        child: Container(
+                          width: MediaQuery.of(context).size.width * 0.8,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 18),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.primary,
+                                AppColors.secondary,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 16,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.9),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.celebration,
+                                  color: AppColors.primary,
+                                  size: 30,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _welcomeMessage ?? '¡Bienvenido!',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 18,
+                                  height: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Nos alegra tenerte de vuelta',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          // Botón para volver al Home (encima del contenido)
+          Positioned(
+            top: 16,
+            left: 16,
+            child: SafeArea(
+              child: ClipOval(
+                child: Material(
+                  color: isDarkMode ? AppColors.darkButtons : Colors.black12,
+                  child: IconButton(
+                    icon: Icon(Icons.arrow_back,
+                        color: isDarkMode ? Colors.white : AppColors.primary),
+                    onPressed: () {
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      } else {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const MainNavigator()),
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -295,8 +429,7 @@ class _LoginScreenState extends State<LoginScreen> {
     bool isPasswordVisible = false,
     VoidCallback? onVisibilityToggle,
   }) {
-    final Color fillColor =
-        isDarkMode ? const Color(0xFF768088) : Colors.white;
+    final Color fillColor = isDarkMode ? const Color(0xFF768088) : Colors.white;
     final Color borderColor = isDarkMode ? Colors.black54 : Colors.black;
     final Color iconColor = isDarkMode ? Colors.white : Colors.black;
     final Color textColor = isDarkMode ? Colors.white : Colors.black;
@@ -325,9 +458,7 @@ class _LoginScreenState extends State<LoginScreen> {
           suffixIcon: isPassword
               ? IconButton(
                   icon: Icon(
-                    isPasswordVisible
-                        ? Icons.visibility_off
-                        : Icons.visibility,
+                    isPasswordVisible ? Icons.visibility_off : Icons.visibility,
                     color: iconColor,
                   ),
                   onPressed: onVisibilityToggle,

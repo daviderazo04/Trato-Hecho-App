@@ -22,14 +22,18 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<ServiceCardData> _services = [];
   List<ServiceCardData> _filteredServices = [];
+  List<ServiceCardData> _visibleServices = [];
   String? _selectedCategory;
   bool _isLoading = true;
+  bool _isLoadingMore = false;
   String? _error;
   int _categoryOffset = 0;
   static const int _categoryWindowSize = 3;
+  static const int _pageSize = 6;
   bool _isCategoryForward = true;
   final Set<int> _favoriteServiceIds = {};
   final FavoritesService _favoritesService = FavoritesService();
+  final ScrollController _scrollController = ScrollController();
 
   final List<CategoryItemData> _categories = const [
     CategoryItemData(
@@ -78,6 +82,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   void initState() {
     super.initState();
     _searchController.addListener(_filterServices);
+    _scrollController.addListener(_onScroll);
     _fetchServices();
   }
 
@@ -85,6 +90,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   void dispose() {
     _searchController.removeListener(_filterServices);
     _searchController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -92,6 +99,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _isLoadingMore = false;
     });
 
     try {
@@ -138,26 +146,30 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
   void _filterServices() {
     final query = _searchController.text.toLowerCase();
+    final filtered = _services.where((service) {
+      final serviceTitle = service.title.toLowerCase();
+      final serviceCategory = service.category.toLowerCase();
+      final providerName = service.providerName.toLowerCase();
+      final matchesSearch = query.isEmpty ||
+          serviceTitle.contains(query) ||
+          serviceCategory.contains(query) ||
+          service.categories.any(
+            (cat) => cat.toLowerCase().contains(query),
+          ) ||
+          providerName.contains(query);
+      // Filtro por categoría (si hay una seleccionada)
+      // Comparamos en minúsculas y buscamos coincidencia parcial para ser más flexibles
+      final matchesCategory = _selectedCategory == null ||
+          service.categories.any(
+            (cat) => cat.toLowerCase().contains(_selectedCategory!.toLowerCase()),
+          );
+      return matchesSearch && matchesCategory;
+    }).toList();
+
     setState(() {
-      _filteredServices = _services.where((service) {
-        final serviceTitle = service.title.toLowerCase();
-        final serviceCategory = service.category.toLowerCase();
-        final providerName = service.providerName.toLowerCase();
-        final matchesSearch = query.isEmpty ||
-            serviceTitle.contains(query) ||
-            serviceCategory.contains(query) ||
-            service.categories.any(
-              (cat) => cat.toLowerCase().contains(query),
-            ) ||
-            providerName.contains(query);
-        // Filtro por categoría (si hay una seleccionada)
-        // Comparamos en minúsculas y buscamos coincidencia parcial para ser más flexibles
-        final matchesCategory = _selectedCategory == null ||
-            service.categories.any(
-              (cat) => cat.toLowerCase().contains(_selectedCategory!.toLowerCase()),
-            );
-        return matchesSearch && matchesCategory;
-      }).toList();
+      _filteredServices = filtered;
+      _visibleServices = filtered.take(_pageSize).toList();
+      _isLoadingMore = false;
     });
   }
 
@@ -188,6 +200,30 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       _categoryWindowSize,
       (index) => _categories[(_categoryOffset + index) % _categories.length],
     );
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || _isLoadingMore) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 200) {
+      _loadMoreServices();
+    }
+  }
+
+  void _loadMoreServices() {
+    if (_isLoadingMore) return;
+    if (_visibleServices.length >= _filteredServices.length) return;
+
+    setState(() => _isLoadingMore = true);
+
+    final nextIndex = _visibleServices.length;
+    final nextItems =
+        _filteredServices.skip(nextIndex).take(_pageSize).toList();
+
+    setState(() {
+      _visibleServices.addAll(nextItems);
+      _isLoadingMore = false;
+    });
   }
 
   Future<bool> _toggleFavorite(ServiceCardData service, {bool? desiredState}) async {
@@ -264,73 +300,93 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         ),
       );
     } else {
-      content = SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SearchField(controller: _searchController, isDark: isDarkMode),
-            const SizedBox(height: 24),
-            _CategoryHeader(
-              categories: _currentCategoryWindow(),
-              accentColor: accentColor,
-              selectedCategory: _selectedCategory,
-              onCategorySelected: _selectCategory,
-              onPrevious: () => _shiftCategories(false),
-              onNext: () => _shiftCategories(true),
-              switchKey: ValueKey<int>(_categoryOffset),
-              isForward: _isCategoryForward,
-              isDark: isDarkMode,
-            ),
-            const SizedBox(height: 24),
-            if (_filteredServices.isEmpty)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 40),
-                  child: Column(
-                    children: [
-                      Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No se encontraron servicios',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              for (final service in _filteredServices)
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ServiceDetailScreen(
-                          data: service,
-                          isFavorite: service.id != null &&
-                              _favoriteServiceIds.contains(service.id),
-                          onFavoriteToggle: (isFav) =>
-                              _toggleFavorite(service, desiredState: isFav),
-                        ),
-                      ),
-                    );
-                  },
+      content = RefreshIndicator(
+        onRefresh: _fetchServices,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SearchField(controller: _searchController, isDark: isDarkMode),
+              const SizedBox(height: 24),
+              _CategoryHeader(
+                categories: _currentCategoryWindow(),
+                accentColor: accentColor,
+                selectedCategory: _selectedCategory,
+                onCategorySelected: _selectCategory,
+                onPrevious: () => _shiftCategories(false),
+                onNext: () => _shiftCategories(true),
+                switchKey: ValueKey<int>(_categoryOffset),
+                isForward: _isCategoryForward,
+                isDark: isDarkMode,
+              ),
+              const SizedBox(height: 24),
+              if (_filteredServices.isEmpty)
+                Center(
                   child: Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: _ServiceCard(
-                      data: service,
-                      accentColor: AppColors.primary,
-                      textTheme: theme.textTheme,
-                      isFavorite: service.id != null &&
-                          _favoriteServiceIds.contains(service.id),
-                      onFavoriteTap: () => _toggleFavorite(service),
-                      isDark: isDarkMode,
+                    padding: const EdgeInsets.only(top: 40),
+                    child: Column(
+                      children: [
+                        Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No se encontraron servicios',
+                          style: theme.textTheme.bodyMedium
+                              ?.copyWith(color: Colors.grey[600]),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-          ],
+                )
+              else ...[
+                for (final service in _visibleServices)
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ServiceDetailScreen(
+                            data: service,
+                            isFavorite: service.id != null &&
+                                _favoriteServiceIds.contains(service.id),
+                            onFavoriteToggle: (isFav) =>
+                                _toggleFavorite(service, desiredState: isFav),
+                          ),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: _ServiceCard(
+                        data: service,
+                        accentColor: AppColors.primary,
+                        textTheme: theme.textTheme,
+                        isFavorite: service.id != null &&
+                            _favoriteServiceIds.contains(service.id),
+                        onFavoriteTap: () => _toggleFavorite(service),
+                        isDark: isDarkMode,
+                      ),
+                    ),
+                  ),
+                if (_isLoadingMore)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: SizedBox(
+                        height: 28,
+                        width: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: accentColor,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
         ),
       );
     }
