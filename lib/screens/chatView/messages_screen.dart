@@ -184,6 +184,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                           chatName: item.chatName,
                                           chatSubtitle: item.subtitle,
                                           rating: item.rating.toStringAsFixed(1),
+                                          serviceId: item.serviceId,
                                         ),
                                       ),
                                     );

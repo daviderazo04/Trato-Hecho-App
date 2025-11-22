@@ -31,7 +31,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   static const int _categoryWindowSize = 3;
   static const int _pageSize = 6;
   bool _isCategoryForward = true;
-  final Set<int> _favoriteServiceIds = {};
   final FavoritesService _favoritesService = FavoritesService();
   final ScrollController _scrollController = ScrollController();
 
@@ -103,30 +102,38 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     });
 
     try {
-      // Usamos la configuración centralizada
-      final url = Uri.parse(ApiConfig.servicios);
-      print("Fetching services from: $url"); // Debug log
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final userId = userProvider.userId;
+
+      String urlString = ApiConfig.servicios;
+      if (userId != null) {
+        urlString += '?userId=$userId';
+      }
+
+      final url = Uri.parse(urlString);
+      print("Fetching services from: $url");
 
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        // Decodificamos UTF8 para evitar problemas con tildes
         final List<dynamic> decoded =
             jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
-        
+
         final services = decoded
-            .map((item) => ServiceCardData.fromJson(item as Map<String, dynamic>))
+            .map((item) =>
+                ServiceCardData.fromJson(item as Map<String, dynamic>))
             .toList();
 
         if (!mounted) return;
         setState(() {
           _services = services;
-          _filterServices(); // Aplicamos filtros iniciales
+          _filterServices();
         });
       } else {
         if (!mounted) return;
         setState(() {
-          _error = 'Error ${response.statusCode}: No se pudieron cargar los servicios';
+          _error =
+              'Error ${response.statusCode}: No se pudieron cargar los servicios';
         });
       }
     } catch (e) {
@@ -157,11 +164,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             (cat) => cat.toLowerCase().contains(query),
           ) ||
           providerName.contains(query);
-      // Filtro por categoría (si hay una seleccionada)
-      // Comparamos en minúsculas y buscamos coincidencia parcial para ser más flexibles
       final matchesCategory = _selectedCategory == null ||
           service.categories.any(
-            (cat) => cat.toLowerCase().contains(_selectedCategory!.toLowerCase()),
+            (cat) =>
+                cat.toLowerCase().contains(_selectedCategory!.toLowerCase()),
           );
       return matchesSearch && matchesCategory;
     }).toList();
@@ -189,7 +195,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     final step = _categoryWindowSize;
     _isCategoryForward = forward;
     setState(() {
-      _categoryOffset = (_categoryOffset + (forward ? step : -step)) % _categories.length;
+      _categoryOffset =
+          (_categoryOffset + (forward ? step : -step)) % _categories.length;
       if (_categoryOffset < 0) _categoryOffset += _categories.length;
     });
   }
@@ -226,41 +233,52 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     });
   }
 
-  Future<bool> _toggleFavorite(ServiceCardData service, {bool? desiredState}) async {
+  Future<void> _toggleFavorite(ServiceCardData service) async {
     final int? serviceId = service.id;
-    if (serviceId == null) return false;
+    if (serviceId == null) return;
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final userId = userProvider.userId;
 
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debes iniciar sesión para guardar favoritos')),
+        const SnackBar(
+            content: Text('Debes iniciar sesión para guardar favoritos')),
       );
-      return false;
+      return;
     }
 
-    final bool isFav = _favoriteServiceIds.contains(serviceId);
-    final bool target = desiredState ?? !isFav;
+    final bool isCurrentlyFavorite = service.esFavorito;
+    final bool desiredState = !isCurrentlyFavorite;
 
-    if (target == isFav) return true;
+    setState(() {
+      service.esFavorito = desiredState;
+    });
 
-    if (target) {
-      setState(() => _favoriteServiceIds.add(serviceId));
-      final success = await _favoritesService.addFavorite(
+    bool success;
+    if (desiredState) {
+      success = await _favoritesService.addFavorite(
         userId: userId,
         serviceId: serviceId,
       );
-      if (!success) {
-        setState(() => _favoriteServiceIds.remove(serviceId));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudo agregar a favoritos')),
-        );
-      }
-      return success;
     } else {
-      setState(() => _favoriteServiceIds.remove(serviceId));
-      return true;
+      success = await _favoritesService.removeFavorite(
+        userId: userId,
+        serviceId: serviceId,
+      );
+    }
+
+    if (!success) {
+      setState(() {
+        service.esFavorito = isCurrentlyFavorite;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No se pudo ${desiredState ? 'agregar a' : 'quitar de'} favoritos',
+          ),
+        ),
+      );
     }
   }
 
@@ -329,7 +347,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                     padding: const EdgeInsets.only(top: 40),
                     child: Column(
                       children: [
-                        Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
+                        Icon(Icons.search_off,
+                            size: 48, color: Colors.grey[400]),
                         const SizedBox(height: 16),
                         Text(
                           'No se encontraron servicios',
@@ -349,10 +368,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                         MaterialPageRoute(
                           builder: (context) => ServiceDetailScreen(
                             data: service,
-                            isFavorite: service.id != null &&
-                                _favoriteServiceIds.contains(service.id),
-                            onFavoriteToggle: (isFav) =>
-                                _toggleFavorite(service, desiredState: isFav),
+                            isFavorite: service.esFavorito,
+                            onFavoriteToggle: () => _toggleFavorite(service),
                           ),
                         ),
                       );
@@ -363,8 +380,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                         data: service,
                         accentColor: AppColors.primary,
                         textTheme: theme.textTheme,
-                        isFavorite: service.id != null &&
-                            _favoriteServiceIds.contains(service.id),
+                        isFavorite: service.esFavorito,
                         onFavoriteTap: () => _toggleFavorite(service),
                         isDark: isDarkMode,
                       ),
@@ -452,10 +468,12 @@ class _CategoryHeader extends StatelessWidget {
                 final bool isIncoming = child.key == switchKey;
                 final Animation<double> effectiveAnimation =
                     isIncoming ? animation : ReverseAnimation(animation);
-                final Offset beginOffset =
-                    isIncoming ? (isForward ? const Offset(1, 0) : const Offset(-1, 0)) : Offset.zero;
-                final Offset endOffset =
-                    isIncoming ? Offset.zero : (isForward ? const Offset(-1, 0) : const Offset(1, 0));
+                final Offset beginOffset = isIncoming
+                    ? (isForward ? const Offset(1, 0) : const Offset(-1, 0))
+                    : Offset.zero;
+                final Offset endOffset = isIncoming
+                    ? Offset.zero
+                    : (isForward ? const Offset(-1, 0) : const Offset(1, 0));
 
                 return SlideTransition(
                   position: effectiveAnimation.drive(
@@ -601,7 +619,7 @@ class _FavoriteButton extends StatelessWidget {
   });
 
   final bool isFavorite;
-  final Future<bool> Function() onTap;
+  final Future<void> Function() onTap;
   final Color accentColor;
 
   @override
@@ -636,7 +654,7 @@ class _ServiceCard extends StatefulWidget {
   final Color accentColor;
   final TextTheme textTheme;
   final bool isFavorite;
-  final Future<bool> Function() onFavoriteTap;
+  final Future<void> Function() onFavoriteTap;
   final bool isDark;
 
   @override
@@ -797,24 +815,27 @@ class _ServiceCardState extends State<_ServiceCard> {
                       final url = widget.data.imageUrls[index];
                       final isVideo = _isVideo(url);
 
-                  if (!isVideo) {
+                      if (!isVideo) {
                         return _buildImage(url);
                       }
 
                       return FutureBuilder(
                         future: _ensureVideoInitialized(index, url),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
                             return Container(
                               color: Colors.black,
-                              child: const Center(child: CircularProgressIndicator()),
+                              child: const Center(
+                                  child: CircularProgressIndicator()),
                             );
                           }
                           if (snapshot.hasError) {
                             return Container(
                               color: Colors.black,
                               child: const Center(
-                                child: Icon(Icons.error_outline, color: Colors.white),
+                                child: Icon(Icons.error_outline,
+                                    color: Colors.white),
                               ),
                             );
                           }
@@ -853,7 +874,7 @@ class _ServiceCardState extends State<_ServiceCard> {
                     },
                   ),
                 ),
-                
+
                 // Arrows
                 Positioned.fill(
                   child: Align(
@@ -967,7 +988,8 @@ class _ServiceCardState extends State<_ServiceCard> {
                   Text(
                     'Sin calificaciones',
                     style: widget.textTheme.bodySmall?.copyWith(
-                      color: widget.isDark ? Colors.grey[400] : Colors.grey[600],
+                      color:
+                          widget.isDark ? Colors.grey[400] : Colors.grey[600],
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -1090,7 +1112,7 @@ class CategoryItemData {
 }
 
 class ServiceCardData {
-  const ServiceCardData({
+  ServiceCardData({
     this.id,
     required this.providerId,
     required this.imageUrls,
@@ -1102,6 +1124,7 @@ class ServiceCardData {
     this.totalRatings = 0,
     required this.price,
     required this.description,
+    required this.esFavorito,
   });
 
   final int? id;
@@ -1115,6 +1138,7 @@ class ServiceCardData {
   final int totalRatings;
   final double price;
   final String description;
+  bool esFavorito;
 
   bool get hasRatings => totalRatings > 0;
   String get ratingLabel =>
@@ -1124,21 +1148,18 @@ class ServiceCardData {
 
   factory ServiceCardData.fromJson(Map<String, dynamic> json) {
     // Manejo seguro de listas que pueden venir nulas o vacías
-    final List<String> images =
-        (json['multimediaUrls'] as List<dynamic>?)
-                ?.whereType<String>()
-                .toList() ??
-            [];
-    
+    final List<String> images = (json['multimediaUrls'] as List<dynamic>?)
+            ?.whereType<String>()
+            .toList() ??
+        [];
+
     // Imagen por defecto si la lista está vacía
     if (images.isEmpty) {
       images.add(fallbackImage);
     }
 
     final List<String> categories =
-        (json['categorias'] as List<dynamic>?)
-                ?.whereType<String>()
-                .toList() ??
+        (json['categorias'] as List<dynamic>?)?.whereType<String>().toList() ??
             [];
 
     return ServiceCardData(
@@ -1154,7 +1175,7 @@ class ServiceCardData {
       categories: categories,
       price: (json['precio'] as num?)?.toDouble() ?? 0.0,
       description: json['descripcion'] as String? ?? '',
+      esFavorito: json['esFavorito'] as bool? ?? false,
     );
   }
-
 }

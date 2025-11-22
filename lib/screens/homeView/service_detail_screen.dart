@@ -8,13 +8,14 @@ import '../../config/theme_provider.dart';
 import '../../widgets/custom_bottom_nav_bar.dart';
 // Importamos la pantalla de chat
 import '../chatView/chat_detail_screen.dart';
+import '../chatView/contratar_servicio_screen.dart';
 // Importamos el modelo de datos que está en 'home_screen.dart'
 import 'home_screen.dart' show ServiceCardData;
 
 class ServiceDetailScreen extends StatefulWidget {
   final ServiceCardData data;
   final bool isFavorite;
-  final Future<bool> Function(bool isFavorite)? onFavoriteToggle;
+  final Future<void> Function()? onFavoriteToggle;
 
   const ServiceDetailScreen({
     super.key,
@@ -120,16 +121,12 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   }
 
   Future<void> _toggleFavorite() async {
-    final bool target = !_isFavorite;
     setState(() {
-      _isFavorite = target;
+      _isFavorite = !_isFavorite;
     });
 
     if (widget.onFavoriteToggle != null) {
-      final success = await widget.onFavoriteToggle!(target);
-      if (!success) {
-        setState(() => _isFavorite = !target);
-      }
+      await widget.onFavoriteToggle!();
     }
   }
 
@@ -290,6 +287,53 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final serviceId = widget.data.id;
+                        if (serviceId == null || serviceId <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'No se puede contratar: falta el ID del servicio.'),
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ContratarServicioScreen(
+                              serviceId: serviceId,
+                              serviceName: widget.data.title,
+                              serviceImage: widget.data.imageUrls.isNotEmpty
+                                  ? widget.data.imageUrls.first
+                                  : null,
+                              fallbackPrice: widget.data.price,
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.notificacion,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: isDarkMode ? 0 : 2,
+                      ),
+                      child: const Text(
+                        'Hacer un trato',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -395,6 +439,21 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                 },
               );
             },
+          ),
+        ),
+        Positioned(
+          top: 12,
+          right: 12,
+          child: Material(
+            color: Colors.black45,
+            shape: const CircleBorder(),
+            child: IconButton(
+              icon: Icon(
+                _isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: _isFavorite ? Colors.redAccent : Colors.white,
+              ),
+              onPressed: _toggleFavorite,
+            ),
           ),
         ),
         Positioned(

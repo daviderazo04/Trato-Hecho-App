@@ -12,6 +12,20 @@ import '../../services/favorites_service.dart';
 import '../homeView/home_screen.dart' show ServiceCardData;
 import '../homeView/service_detail_screen.dart';
 
+// Fixed categories list (use these instead of deriving from services)
+const List<String> _fixedCategories = [
+  'Música Tradicional y Mariachis',
+  'Animación Infantil y Payasos',
+  'Catering y Comida',
+  'Música Moderna y DJs',
+  'Fotografía y Video',
+  'Decoración y Ambientación',
+  'Mobiliario y Logística',
+  'Entretenimiento Variado',
+  'Servicios Adicionales',
+  'Juegos e Inflables',
+];
+
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
@@ -25,7 +39,7 @@ class _SearchScreenState extends State<SearchScreen> {
   List<ServiceCardData> _services = [];
   List<ServiceCardData> _filtered = [];
   Set<String> _selectedCategories = {};
-  List<String> _availableCategories = [];
+  List<String> _availableCategories = List.from(_fixedCategories);
   final Set<int> _favoriteServiceIds = {};
   final FavoritesService _favoritesService = FavoritesService();
 
@@ -62,7 +76,15 @@ class _SearchScreenState extends State<SearchScreen> {
     });
 
     try {
-      final url = Uri.parse(ApiConfig.servicios);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final userId = userProvider.userId;
+
+      String urlString = ApiConfig.servicios;
+      if (userId != null) {
+        urlString += '?userId=$userId';
+      }
+
+      final url = Uri.parse(urlString);
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -70,17 +92,20 @@ class _SearchScreenState extends State<SearchScreen> {
             jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
 
         final services = decoded
-            .map((item) => ServiceCardData.fromJson(item as Map<String, dynamic>))
+            .map((item) =>
+                ServiceCardData.fromJson(item as Map<String, dynamic>))
             .toList();
-
-        final categories = <String>{};
-        for (final service in services) {
-          categories.addAll(service.categories);
-        }
 
         setState(() {
           _services = services;
-          _availableCategories = categories.toList()..sort();
+          // populate favorite ids from the loaded services (API returns `esFavorito`)
+          _favoriteServiceIds.clear();
+          for (final s in services) {
+            if (s.id != null && s.esFavorito) {
+              _favoriteServiceIds.add(s.id!);
+            }
+          }
+          // keep `_availableCategories` as the fixed list defined above
           _minPrice = 0;
           _maxPrice = 1000;
           _priceRange = const RangeValues(0, 1000);
@@ -88,7 +113,8 @@ class _SearchScreenState extends State<SearchScreen> {
         _applyFilters();
       } else {
         setState(() {
-          _error = 'No se pudieron cargar los servicios (${response.statusCode})';
+          _error =
+              'No se pudieron cargar los servicios (${response.statusCode})';
         });
       }
     } catch (e) {
@@ -114,13 +140,17 @@ class _SearchScreenState extends State<SearchScreen> {
       final matchesCategory = _selectedCategories.isEmpty ||
           service.categories.any((c) => _selectedCategories.contains(c));
 
-      final matchesPrice =
-          service.price >= _priceRange.start && service.price <= _priceRange.end;
+      final matchesPrice = service.price >= _priceRange.start &&
+          service.price <= _priceRange.end;
 
       final matchesMedia = !_onlyWithMedia || service.imageUrls.isNotEmpty;
       final matchesRating = !_hideUnrated || service.hasRatings;
 
-      return matchesText && matchesCategory && matchesPrice && matchesMedia && matchesRating;
+      return matchesText &&
+          matchesCategory &&
+          matchesPrice &&
+          matchesMedia &&
+          matchesRating;
     }).toList();
 
     temp.sort((a, b) {
@@ -173,7 +203,8 @@ class _SearchScreenState extends State<SearchScreen> {
     final userId = userProvider.userId;
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debes iniciar sesión para guardar favoritos')),
+        const SnackBar(
+            content: Text('Debes iniciar sesión para guardar favoritos')),
       );
       return false;
     }
@@ -184,8 +215,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
     if (target) {
       setState(() => _favoriteServiceIds.add(serviceId));
-      final success =
-          await _favoritesService.addFavorite(userId: userId, serviceId: serviceId);
+      final success = await _favoritesService.addFavorite(
+          userId: userId, serviceId: serviceId);
       if (!success) {
         setState(() => _favoriteServiceIds.remove(serviceId));
         ScaffoldMessenger.of(context).showSnackBar(
@@ -195,34 +226,18 @@ class _SearchScreenState extends State<SearchScreen> {
       return success;
     } else {
       setState(() => _favoriteServiceIds.remove(serviceId));
-      return true;
+      // also notify backend
+      final success = await _favoritesService.removeFavorite(
+          userId: userId, serviceId: serviceId);
+      if (!success) {
+        // rollback locally if server failed
+        setState(() => _favoriteServiceIds.add(serviceId));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo quitar de favoritos')),
+        );
+      }
+      return success;
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isDark = Provider.of<ThemeProvider>(context).isDarkMode;
-    final Color scaffoldBg =
-        isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
-
-    return Scaffold(
-      backgroundColor: scaffoldBg,
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _fetchServices,
-          child: ListView(
-            padding: const EdgeInsets.only(bottom: 24),
-            children: [
-              _buildHeader(isDark),
-              const SizedBox(height: 12),
-              _buildFiltersCard(isDark),
-              const SizedBox(height: 12),
-              _buildResults(isDark),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildHeader(bool isDark) {
@@ -295,7 +310,8 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: AppColors.accent, width: 2),
+                  borderSide:
+                      const BorderSide(color: AppColors.accent, width: 2),
                 ),
               ),
             ),
@@ -331,11 +347,16 @@ class _SearchScreenState extends State<SearchScreen> {
               children: [
                 const Icon(Icons.tune, color: AppColors.accent),
                 const SizedBox(width: 8),
-                Text(
-                  'Filtros inteligentes',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                Flexible(
+                  child: Text(
+                    'Filtros inteligentes',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
+                  ),
                 ),
                 const Spacer(),
                 TextButton.icon(
@@ -387,38 +408,43 @@ class _SearchScreenState extends State<SearchScreen> {
       children: [
         _FilterLabel('Categorías', isDark: isDark),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 40,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: _availableCategories.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final cat = _availableCategories[index];
-              final isSelected = _selectedCategories.contains(cat);
-              return ChoiceChip(
+        // Mostrar categorías en una columna vertical, una por una
+        ...(_availableCategories.map((category) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: ChoiceChip(
                 label: Text(
-                  cat,
-                  overflow: TextOverflow.ellipsis,
+                  category,
+                  style: TextStyle(
+                    color: _selectedCategories.contains(category)
+                        ? AppColors.primary
+                        : AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
                 ),
-                selected: isSelected,
-                onSelected: (_) => _toggleCategory(cat),
+                labelPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                selected: _selectedCategories.contains(category),
+                onSelected: (_) => _toggleCategory(category),
                 selectedColor: AppColors.secondary.withOpacity(0.18),
-                labelStyle: TextStyle(
-                  color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(
-                    color: isSelected ? AppColors.secondary : AppColors.border,
+                    color: _selectedCategories.contains(category)
+                        ? AppColors.secondary
+                        : AppColors.border,
                   ),
                 ),
                 backgroundColor: Colors.white,
-              );
-            },
-          ),
-        ),
+              ),
+            ),
+          );
+        }).toList()),
       ],
     );
   }
@@ -517,9 +543,11 @@ class _SearchScreenState extends State<SearchScreen> {
         DropdownButtonFormField<String>(
           value: _sortOption,
           isDense: false,
+          isExpanded: true,
           itemHeight: 52,
           decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.border),
@@ -531,9 +559,12 @@ class _SearchScreenState extends State<SearchScreen> {
             DropdownMenuItem(
               value: 'relevance',
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white10 : AppColors.primary.withOpacity(0.08),
+                  color: isDark
+                      ? Colors.white10
+                      : AppColors.primary.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -563,21 +594,37 @@ class _SearchScreenState extends State<SearchScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Text('Mejor calificados'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  'Mejor calificados',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Text('Menor precio'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  'Menor precio',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Text('Mayor precio'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  'Mayor precio',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Text('Más recientes'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  'Más recientes',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ];
           },
@@ -598,6 +645,7 @@ class _SearchScreenState extends State<SearchScreen> {
         child: Center(child: CircularProgressIndicator()),
       );
     }
+
     if (_error != null) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
@@ -617,6 +665,7 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       );
     }
+
     if (_filtered.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
@@ -653,8 +702,9 @@ class _SearchScreenState extends State<SearchScreen> {
                         data: service,
                         isFavorite: service.id != null &&
                             _favoriteServiceIds.contains(service.id),
-                        onFavoriteToggle: (isFav) =>
-                            _toggleFavorite(service, context, desiredState: isFav),
+                        onFavoriteToggle: () async {
+                          await _toggleFavorite(service, context);
+                        },
                       ),
                     ),
                   );
@@ -663,6 +713,33 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           )
           .toList(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final bool isDark = themeProvider.isDarkMode;
+    final Color scaffoldBg =
+        isDark ? AppColors.backgroundDark : AppColors.backgroundWhite;
+
+    return Scaffold(
+      backgroundColor: scaffoldBg,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _fetchServices,
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: 24),
+            children: [
+              _buildHeader(isDark),
+              const SizedBox(height: 12),
+              _buildFiltersCard(isDark),
+              const SizedBox(height: 12),
+              _buildResults(isDark),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -685,7 +762,8 @@ class _FilterLabel extends StatelessWidget {
 }
 
 class _PriceTag extends StatelessWidget {
-  const _PriceTag({required this.label, required this.value, this.isDark = false});
+  const _PriceTag(
+      {required this.label, required this.value, this.isDark = false});
   final String label;
   final double value;
   final bool isDark;
@@ -742,8 +820,7 @@ class _ResultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ratingText = data.ratingLabel;
-    final Color cardColor =
-        isDark ? AppColors.darkButtons : Colors.white;
+    final Color cardColor = isDark ? AppColors.darkButtons : Colors.white;
     final Color primaryText =
         isDark ? AppColors.darkText : AppColors.textPrimary;
     final Color secondaryText =
@@ -767,7 +844,8 @@ class _ResultCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
               child: Stack(
                 children: [
                   AspectRatio(
@@ -790,7 +868,8 @@ class _ResultCard extends StatelessWidget {
                     bottom: 10,
                     right: 10,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withOpacity(0.92),
                         borderRadius: BorderRadius.circular(12),
@@ -882,21 +961,25 @@ class _ResultCard extends StatelessWidget {
                         .take(3)
                         .map(
                           (cat) => Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
                               color: isDark
                                   ? Colors.white.withOpacity(0.08)
                                   : AppColors.primary.withOpacity(0.08),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: isDark ? Colors.white : AppColors.primary,
+                                color:
+                                    isDark ? Colors.white : AppColors.primary,
                                 width: 1.2,
                               ),
                             ),
                             child: Text(
                               cat,
                               style: TextStyle(
-                                color: isDark ? Colors.white : AppColors.textPrimary,
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 12,
                               ),

@@ -41,11 +41,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
   int? _currentConId;
+  int? _currentServiceId;
 
   @override
   void initState() {
     super.initState();
     _currentConId = widget.conId;
+    _currentServiceId = widget.serviceId;
     _loadHistory();
   }
 
@@ -80,9 +82,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     try {
       final msgs = await _chatService.getHistory(_currentConId!, myUserId);
       if (mounted) {
+        // Si no tenemos serviceId, tratamos de obtenerlo de los mensajes
+        int? firstServiceId;
+        for (final m in msgs) {
+          if (m.serviceId != null && m.serviceId! > 0) {
+            firstServiceId = m.serviceId;
+            break;
+          }
+        }
+
         setState(() {
           _messages = msgs;
           _isLoading = false;
+          _currentServiceId = _currentServiceId ?? firstServiceId;
         });
       }
     } catch (e) {
@@ -106,7 +118,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         receiverId: widget.receiverId,
         conId: _currentConId,
         serviceId:
-            widget.serviceId, // --- PASAMOS EL ID DEL SERVICIO AL CREAR ---
+            _currentServiceId, // Usamos el ID si lo tenemos
         content: text,
       );
 

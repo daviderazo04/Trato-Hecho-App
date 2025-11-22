@@ -1,301 +1,309 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../config/theme_provider.dart';
-import '../../config/appColors.dart';
-import '../../main.dart';
 
-class RecentDealsScreen extends StatelessWidget {
-  const RecentDealsScreen({Key? key}) : super(key: key);
+import '../../config/appColors.dart';
+import '../../config/theme_provider.dart';
+import '../../config/user_provider.dart';
+import '../../services/contratacion_service.dart';
+import 'rate_service_screen.dart';
+
+class RecentDealsScreen extends StatefulWidget {
+  const RecentDealsScreen({super.key});
+
+  @override
+  State<RecentDealsScreen> createState() => _RecentDealsScreenState();
+}
+
+class _RecentDealsScreenState extends State<RecentDealsScreen>
+    with SingleTickerProviderStateMixin {
+  final ContratacionService _contratacionService = ContratacionService();
+
+  ContratacionHistorial? _historial;
+  bool _isLoading = true;
+  String? _error;
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final userId = Provider.of<UserProvider>(context, listen: false).userId;
+    if (userId == null) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Inicia sesión para ver tu historial.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final resp = await _contratacionService.getHistorial(userId);
+    if (!mounted) return;
+    setState(() {
+      _historial = resp;
+      _isLoading = false;
+      _error = resp == null ? 'No se pudo cargar el historial.' : null;
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final bool isDarkMode = themeProvider.isDarkMode;
-
-    // Background colors
-    final Color backgroundColor =
-        isDarkMode ? AppColors.backgroundDark : Colors.white;
-    final Color decorationColor = isDarkMode
-        ? Colors.white.withOpacity(0.10)
-        : const Color(0xFFC5CAE9).withOpacity(0.5);
+    final isDarkMode = themeProvider.isDarkMode;
 
     return Scaffold(
-      backgroundColor: backgroundColor,
-      body: Stack(
-        children: [
-          // --- 1. BACKGROUND DECORATIONS ---
-          Positioned(
-            top: 100,
-            left: -50,
-            child: Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: decorationColor,
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -80,
-            right: -40,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: decorationColor,
-              ),
-            ),
-          ),
-
-          // --- 2. MAIN CONTENT ---
-          Column(
-            children: [
-              // --- Custom Header ---
-              _buildCustomHeader(context),
-
-              // --- Content Body ---
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 20),
-
-                      // "Tratos" Label
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(10),
-                          border: isDarkMode
-                              ? Border.all(color: Colors.white, width: 1)
-                              : null,
-                        ),
-                        child: const Text(
-                          "Tratos",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // List of Deals
-                      Expanded(
-                        child: ListView(
-                          padding: EdgeInsets.zero,
-                          children: [
-                            _buildDealCard(isDarkMode),
-                            _buildDealCard(isDarkMode),
-                            _buildDealCard(isDarkMode),
-                          ],
-                        ),
-                      ),
-
-                      // "Ver mas tratos" Button
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: 200,
-                        height: 45,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const MainNavigator(initialIndex: 1),
-                              ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25),
-                              side: const BorderSide(
-                                  color: Colors.white, width: 1),
-                            ),
-                            elevation: 5,
-                          ),
-                          child: const Text(
-                            "Ver mas tratos",
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- WIDGETS ---
-
-  Widget _buildCustomHeader(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.only(top: 15, bottom: 15, left: 20, right: 20),
-      decoration: const BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                icon: const Icon(Icons.arrow_back,
-                    color: AppColors.primary, size: 18),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-            const SizedBox(width: 20),
-            const Text(
-              'Tratos Recientes',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+      backgroundColor:
+          isDarkMode ? AppColors.backgroundDark : AppColors.backgroundWhite,
+      appBar: AppBar(
+        title: const Text('Tratos recientes'),
+        backgroundColor:
+            isDarkMode ? AppColors.backgroundDark : AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(text: 'Compras'),
+            Tab(text: 'Ventas'),
           ],
         ),
       ),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(
+                    child: Text(
+                      _error!,
+                      style: TextStyle(
+                        color: isDarkMode
+                            ? Colors.white70
+                            : AppColors.textPrimary,
+                      ),
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _loadData,
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildList(_historial?.compras ?? [],
+                            isCompra: true, isDarkMode: isDarkMode),
+                        _buildList(_historial?.ventas ?? [],
+                            isCompra: false, isDarkMode: isDarkMode),
+                      ],
+                    ),
+                  ),
+      ),
     );
   }
 
-  Widget _buildDealCard(bool isDarkMode) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+  Widget _buildList(List<ContratoItem> items,
+      {required bool isCompra, required bool isDarkMode}) {
+    if (items.isEmpty) {
+      return ListView(
+        children: [
+          const SizedBox(height: 40),
+          Center(
+            child: Text(
+              'No hay ${isCompra ? 'compras' : 'ventas'}',
+              style: TextStyle(
+                color: isDarkMode ? Colors.white70 : AppColors.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView.builder(
       padding: const EdgeInsets.all(16),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return _buildDealCard(item, isCompra, isDarkMode);
+      },
+    );
+  }
+
+  Widget _buildDealCard(
+      ContratoItem item, bool isCompra, bool isDarkMode) {
+    final dateRange =
+        '${_fmtDate(item.fechaInicio)} • ${_fmtHour(item.fechaInicio)} - ${_fmtHour(item.fechaFin)}';
+    final badgeColor =
+        isCompra ? AppColors.primary : AppColors.notificacion;
+    final canReview = isCompra && item.finalizado;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDarkMode ? AppColors.darkButtons : const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(20),
+        color: isDarkMode ? AppColors.darkButtons : Colors.white,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDarkMode ? Colors.white : Colors.transparent,
-          width: 1,
+          color: isDarkMode ? Colors.white24 : Colors.grey.shade300,
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // FIX 1: Use Expanded for the text side so it takes remaining space
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Mariachi “El Sol”',
-                  style: TextStyle(
-                    color: isDarkMode ? Colors.white : AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "¡Dale vida y luz a tu evento con Mariachi 'El Sol'! Somos un grupo...",
-                  style: TextStyle(
-                    color:
-                        isDarkMode ? Colors.grey[300] : AppColors.textSecondary,
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // FIX 2: Removed Expanded here. Now this column takes only the space it needs.
-          // This prevents the buttons from being squished.
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Review Button
+              CircleAvatar(
+                radius: 26,
+                backgroundImage: item.contraparteFoto != null
+                    ? NetworkImage(item.contraparteFoto!)
+                    : null,
+                backgroundColor:
+                    item.contraparteFoto == null ? Colors.grey[300] : null,
+                child: item.contraparteFoto == null
+                    ? const Icon(Icons.person, color: AppColors.primary)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.servicio.nombre,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isDarkMode
+                            ? Colors.white
+                            : AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.contraparteNombre,
+                      style: TextStyle(
+                        color: isDarkMode
+                            ? Colors.white70
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      dateRange,
+                      style: TextStyle(
+                        color: isDarkMode
+                            ? Colors.white70
+                            : AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(8),
+                  color: badgeColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: badgeColor),
                 ),
-                // Using Row with MainAxisSize.min ensures tight fit
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      "¡Deja tu reseña!",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(width: 4),
-                    Icon(Icons.star_border, color: Colors.yellow, size: 14),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Status Badge
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.success),
-                ),
-                child: const Text(
-                  "Contratado",
+                child: Text(
+                  isCompra ? 'Compra' : 'Venta',
                   style: TextStyle(
-                    color: Color.fromARGB(255, 0, 253, 224),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    color: badgeColor,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '\$${item.servicio.precio.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.white : AppColors.primary,
+                ),
+              ),
+              if (canReview)
+                TextButton.icon(
+                  onPressed: () => _goToReview(item),
+                  icon: const Icon(Icons.star_border, color: AppColors.amber),
+                  label: const Text('Calificar'),
+                )
+              else
+                Text(
+                  item.finalizado
+                      ? 'Esperando calificación'
+                      : 'En curso',
+                  style: TextStyle(
+                    color: isDarkMode
+                        ? Colors.white70
+                        : AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
             ],
           ),
         ],
       ),
     );
   }
+
+  void _goToReview(ContratoItem item) async {
+    final userId = Provider.of<UserProvider>(context, listen: false).userId;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes iniciar sesión para calificar.')),
+      );
+      return;
+    }
+
+    final submitted = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RateServiceScreen(
+          servicioId: item.servicio.id,
+          servicioNombre: item.servicio.nombre,
+        ),
+      ),
+    );
+
+    if (submitted == true) {
+      _loadData(); // refrescar para actualizar estado
+    }
+  }
+
+  String _fmtDate(DateTime dt) =>
+      '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+
+  String _fmtHour(DateTime dt) =>
+      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 }

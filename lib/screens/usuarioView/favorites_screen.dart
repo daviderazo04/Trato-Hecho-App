@@ -2,9 +2,51 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_provider.dart';
 import '../../config/appColors.dart';
+import '../../config/user_provider.dart';
+import '../../services/favorites_service.dart';
+import '../homeView/home_screen.dart' show ServiceCardData;
+import '../homeView/service_detail_screen.dart';
 
-class FavoritesScreen extends StatelessWidget {
+class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({Key? key}) : super(key: key);
+
+  @override
+  State<FavoritesScreen> createState() => _FavoritesScreenState();
+}
+
+class _FavoritesScreenState extends State<FavoritesScreen> {
+  final FavoritesService _favoritesService = FavoritesService();
+  bool _isLoading = true;
+  String? _error;
+  List<ServiceCardData> _favorites = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    final userId = Provider.of<UserProvider>(context, listen: false).userId;
+    if (userId == null) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Debes iniciar sesión para ver favoritos.';
+      });
+      return;
+    }
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    final favs = await _favoritesService.getFavorites(userId);
+    if (!mounted) return;
+    setState(() {
+      _favorites = favs;
+      _isLoading = false;
+      _error = favs.isEmpty ? 'No tienes favoritos guardados.' : null;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -88,38 +130,38 @@ class FavoritesScreen extends StatelessWidget {
 
                       // List of Favorites
                       Expanded(
-                        child: ListView(
-                          padding: EdgeInsets.zero,
-                          children: [
-                            _buildFavoriteCard(
-                              isDarkMode,
-                              title: "Mariachi 'El Sol'",
-                              description:
-                                  "¡Dale vida y luz a tu evento con Mariachi 'El Sol'! Somos un grupo...",
-                              rating: "4.8",
-                              imageUrl:
-                                  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROP0F8frSy8dG_OEnlu6tcyS6LYBsXYC5h1g&s',
-                            ),
-                            _buildFavoriteCard(
-                              isDarkMode,
-                              title: "Banquetes Delicia",
-                              description:
-                                  "Servicio de catering profesional para bodas y eventos corporativos...",
-                              rating: "4.9",
-                              imageUrl:
-                                  'https://media.minutouno.com/p/4a0e318ddc071d2050e87fbc4adaec7f/adjuntos/150/imagenes/027/232/0027232808/610x0/smart/enano.png',
-                            ),
-                            _buildFavoriteCard(
-                              isDarkMode,
-                              title: "DJ Nightlife",
-                              description:
-                                  "La mejor música y luces para tu fiesta. Experiencia garantizada...",
-                              rating: "4.5",
-                              imageUrl:
-                                  'https://ichef.bbci.co.uk/ace/ws/640/amz/worldservice/live/assets/images/2015/04/11/150411184332_reino4.jpg.webp',
-                            ),
-                          ],
-                        ),
+                        child: _isLoading
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primary,
+                                ),
+                              )
+                            : _error != null
+                                ? Center(
+                                    child: Text(
+                                      _error!,
+                                      style: TextStyle(
+                                        color: isDarkMode
+                                            ? Colors.white70
+                                            : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  )
+                                : RefreshIndicator(
+                                    onRefresh: _loadFavorites,
+                                    child: ListView.builder(
+                                      padding: EdgeInsets.zero,
+                                      itemCount: _favorites.length,
+                                      itemBuilder: (context, index) {
+                                        final item = _favorites[index];
+                                        return _buildFavoriteCard(
+                                          isDarkMode,
+                                          data: item,
+                                          onTap: () => _openDetail(item),
+                                        );
+                                      },
+                                    ),
+                                  ),
                       ),
                     ],
                   ),
@@ -180,11 +222,14 @@ class FavoritesScreen extends StatelessWidget {
 
   Widget _buildFavoriteCard(
     bool isDarkMode, {
-    required String title,
-    required String description,
-    required String rating,
-    required String imageUrl,
+    required ServiceCardData data,
+    required VoidCallback onTap,
   }) {
+    final imageUrl =
+        data.imageUrls.isNotEmpty ? data.imageUrls.first : ServiceCardData.fallbackImage;
+    final rating =
+        data.totalRatings > 0 ? data.rating.toStringAsFixed(1) : 'N/A';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(12), // Reduced padding slightly
@@ -205,101 +250,115 @@ class FavoritesScreen extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // 1. Image (Optional - added for visual appeal based on typical favorite lists)
-          // If you don't want images, remove this ClipRRect block.
-          ClipRRect(
-            borderRadius: BorderRadius.circular(15),
-            child: Image.network(
-              imageUrl,
-              width: 80,
-              height: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (ctx, err, stack) => Container(
+      child: InkWell(
+        onTap: onTap,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // 1. Image
+            ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: Image.network(
+                imageUrl,
                 width: 80,
-                color: Colors.grey[300],
-                child:
-                    const Icon(Icons.image_not_supported, color: Colors.grey),
+                height: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (ctx, err, stack) => Container(
+                  width: 80,
+                  color: Colors.grey[300],
+                  child:
+                      const Icon(Icons.image_not_supported, color: Colors.grey),
+                ),
               ),
             ),
-          ),
 
-          const SizedBox(width: 12),
+            const SizedBox(width: 12),
 
-          // 2. Middle Text Section
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+            // 2. Middle Text Section
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    data.title,
+                    style: TextStyle(
+                      color: isDarkMode ? Colors.white : AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    data.description,
+                    style: TextStyle(
+                      color: isDarkMode
+                          ? Colors.grey[300]
+                          : AppColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.3,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            // 3. Right Action Section (Heart + Rating)
+            Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isDarkMode ? Colors.white : AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                const Icon(
+                  Icons.favorite,
+                  color: AppColors.error, // Red heart
+                  size: 28,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    color:
-                        isDarkMode ? Colors.grey[300] : AppColors.textSecondary,
-                    fontSize: 12,
-                    height: 1.3,
+
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star, color: Colors.yellow, size: 12),
+                      const SizedBox(width: 4),
+                      Text(
+                        rating,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
+          ],
+        ),
+      ),
+    );
+  }
 
-          const SizedBox(width: 8),
-
-          // 3. Right Action Section (Heart + Rating)
-          Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Heart Icon
-              const Icon(
-                Icons.favorite,
-                color: AppColors.error, // Red heart
-                size: 28,
-              ),
-
-              // Rating Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.star, color: Colors.yellow, size: 12),
-                    const SizedBox(width: 4),
-                    Text(
-                      rating,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+  void _openDetail(ServiceCardData data) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ServiceDetailScreen(
+          data: data,
+          isFavorite: true,
+        ),
       ),
     );
   }
