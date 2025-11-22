@@ -13,8 +13,15 @@ import 'home_screen.dart' show ServiceCardData;
 
 class ServiceDetailScreen extends StatefulWidget {
   final ServiceCardData data;
+  final bool isFavorite;
+  final Future<bool> Function(bool isFavorite)? onFavoriteToggle;
 
-  const ServiceDetailScreen({super.key, required this.data});
+  const ServiceDetailScreen({
+    super.key,
+    required this.data,
+    this.isFavorite = false,
+    this.onFavoriteToggle,
+  });
 
   @override
   State<ServiceDetailScreen> createState() => _ServiceDetailScreenState();
@@ -25,11 +32,13 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   int _currentIndex = 0;
   final Map<int, VideoPlayerController> _videoControllers = {};
   final Map<int, Future<void>> _initializeVideoFutures = {};
+  late bool _isFavorite;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+    _isFavorite = widget.isFavorite;
   }
 
   @override
@@ -119,14 +128,29 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     );
   }
 
+  Future<void> _toggleFavorite() async {
+    final bool target = !_isFavorite;
+    setState(() {
+      _isFavorite = target;
+    });
+
+    if (widget.onFavoriteToggle != null) {
+      final success = await widget.onFavoriteToggle!(target);
+      if (!success) {
+        setState(() => _isFavorite = !target);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
     final bool isDarkMode = themeProvider.isDarkMode;
 
     final Color contactButtonColor = AppColors.notificacion;
     final Color darkBlueColor = const Color.fromRGBO(7, 39, 64, 1);
+    final bool hasRatings = widget.data.hasRatings;
+    final String ratingLabel = widget.data.ratingLabel;
 
     return Scaffold(
       backgroundColor: _backgroundColor(isDarkMode),
@@ -145,19 +169,22 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
             child: Row(
               children: [
                 Text(
-                  widget.data.rating.toStringAsFixed(1),
+                  ratingLabel,
                   style: TextStyle(
                     color: isDarkMode ? Colors.white : AppColors.borders,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.star,
-                  color: AppColors.amber,
-                  size: 20,
-                ),
+                if (hasRatings) ...[
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.star,
+                    color: AppColors.amber,
+                    size: 20,
+                  ),
+                ],
               ],
             ),
           )
@@ -248,7 +275,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                           chatName: widget.data.providerName, // Nombre: Jhon Tonsupa
                           chatSubtitle: widget.data.title,    // Subtítulo: Payaso Bombón
                           // ----------------------------------------------
-                          rating: widget.data.rating.toStringAsFixed(1),
+                          rating: widget.data.ratingLabel,
                         ),
                       ),
                     );
@@ -370,6 +397,21 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                 },
               );
             },
+          ),
+        ),
+        Positioned(
+          top: 12,
+          right: 12,
+          child: Material(
+            color: Colors.black45,
+            shape: const CircleBorder(),
+            child: IconButton(
+              onPressed: _toggleFavorite,
+              icon: Icon(
+                _isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: _isFavorite ? Colors.redAccent : Colors.white,
+              ),
+            ),
           ),
         ),
         Positioned(

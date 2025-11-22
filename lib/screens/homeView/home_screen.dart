@@ -1,12 +1,15 @@
 import 'dart:convert';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
+import 'package:provider/provider.dart';
 
 import 'service_detail_screen.dart';
 import '../../config/api_config.dart';
 import '../../config/appColors.dart';
+import '../../config/theme_provider.dart';
+import '../../config/user_provider.dart';
+import '../../services/favorites_service.dart';
 
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({super.key});
@@ -25,6 +28,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   int _categoryOffset = 0;
   static const int _categoryWindowSize = 3;
   bool _isCategoryForward = true;
+  final Set<int> _favoriteServiceIds = {};
+  final FavoritesService _favoritesService = FavoritesService();
 
   final List<CategoryItemData> _categories = const [
     CategoryItemData(
@@ -136,11 +141,21 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     setState(() {
       _filteredServices = _services.where((service) {
         final serviceTitle = service.title.toLowerCase();
-        final matchesSearch = serviceTitle.contains(query);
+        final serviceCategory = service.category.toLowerCase();
+        final providerName = service.providerName.toLowerCase();
+        final matchesSearch = query.isEmpty ||
+            serviceTitle.contains(query) ||
+            serviceCategory.contains(query) ||
+            service.categories.any(
+              (cat) => cat.toLowerCase().contains(query),
+            ) ||
+            providerName.contains(query);
         // Filtro por categoría (si hay una seleccionada)
         // Comparamos en minúsculas y buscamos coincidencia parcial para ser más flexibles
         final matchesCategory = _selectedCategory == null ||
-            service.category.toLowerCase().contains(_selectedCategory!.toLowerCase());
+            service.categories.any(
+              (cat) => cat.toLowerCase().contains(_selectedCategory!.toLowerCase()),
+            );
         return matchesSearch && matchesCategory;
       }).toList();
     });
@@ -175,10 +190,52 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 
+  Future<bool> _toggleFavorite(ServiceCardData service, {bool? desiredState}) async {
+    final int? serviceId = service.id;
+    if (serviceId == null) return false;
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.userId;
+
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes iniciar sesión para guardar favoritos')),
+      );
+      return false;
+    }
+
+    final bool isFav = _favoriteServiceIds.contains(serviceId);
+    final bool target = desiredState ?? !isFav;
+
+    if (target == isFav) return true;
+
+    if (target) {
+      setState(() => _favoriteServiceIds.add(serviceId));
+      final success = await _favoritesService.addFavorite(
+        userId: userId,
+        serviceId: serviceId,
+      );
+      if (!success) {
+        setState(() => _favoriteServiceIds.remove(serviceId));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo agregar a favoritos')),
+        );
+      }
+      return success;
+    } else {
+      setState(() => _favoriteServiceIds.remove(serviceId));
+      return true;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final Color accentColor = const Color.fromRGBO(59, 96, 125, 1);
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final bool isDarkMode = themeProvider.isDarkMode;
+    final Color accentColor = isDarkMode ? Colors.white : AppColors.primary;
+    final Color scaffoldBg =
+        isDarkMode ? AppColors.backgroundDark : const Color(0xFFF5F5F5);
 
     Widget content;
     if (_isLoading) {
@@ -212,7 +269,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SearchField(controller: _searchController),
+            _SearchField(controller: _searchController, isDark: isDarkMode),
             const SizedBox(height: 24),
             _CategoryHeader(
               categories: _currentCategoryWindow(),
@@ -223,6 +280,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
               onNext: () => _shiftCategories(true),
               switchKey: ValueKey<int>(_categoryOffset),
               isForward: _isCategoryForward,
+              isDark: isDarkMode,
             ),
             const SizedBox(height: 24),
             if (_filteredServices.isEmpty)
@@ -251,6 +309,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                       MaterialPageRoute(
                         builder: (context) => ServiceDetailScreen(
                           data: service,
+                          isFavorite: service.id != null &&
+                              _favoriteServiceIds.contains(service.id),
+                          onFavoriteToggle: (isFav) =>
+                              _toggleFavorite(service, desiredState: isFav),
                         ),
                       ),
                     );
@@ -261,6 +323,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                       data: service,
                       accentColor: AppColors.primary,
                       textTheme: theme.textTheme,
+                      isFavorite: service.id != null &&
+                          _favoriteServiceIds.contains(service.id),
+                      onFavoriteTap: () => _toggleFavorite(service),
+                      isDark: isDarkMode,
                     ),
                   ),
                 ),
@@ -270,7 +336,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: scaffoldBg,
       body: SafeArea(
         child: content,
       ),
@@ -290,6 +356,7 @@ class _CategoryHeader extends StatelessWidget {
     required this.onNext,
     required this.switchKey,
     required this.isForward,
+    required this.isDark,
   });
 
   final List<CategoryItemData> categories;
@@ -300,6 +367,7 @@ class _CategoryHeader extends StatelessWidget {
   final VoidCallback onNext;
   final Key switchKey;
   final bool isForward;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -310,42 +378,54 @@ class _CategoryHeader extends StatelessWidget {
           icon: Icons.arrow_back_ios_new,
           color: accentColor,
           onTap: onPrevious,
+          isDark: isDark,
         ),
         Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 350),
-            transitionBuilder: (child, animation) {
-              final bool isIncoming = child.key == switchKey;
-              final Animation<double> effectiveAnimation =
-                  isIncoming ? animation : ReverseAnimation(animation);
-              final Offset beginOffset =
-                  isIncoming ? (isForward ? const Offset(1, 0) : const Offset(-1, 0)) : Offset.zero;
-              final Offset endOffset =
-                  isIncoming ? Offset.zero : (isForward ? const Offset(-1, 0) : const Offset(1, 0));
-
-              return SlideTransition(
-                position: effectiveAnimation.drive(
-                  Tween<Offset>(begin: beginOffset, end: endOffset)
-                      .chain(CurveTween(curve: Curves.easeInOut)),
-                ),
-                child: child,
-              );
+          child: GestureDetector(
+            onHorizontalDragEnd: (details) {
+              final velocity = details.primaryVelocity ?? 0;
+              if (velocity < -100) {
+                onNext();
+              } else if (velocity > 100) {
+                onPrevious();
+              }
             },
-            child: Row(
-              key: switchKey,
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: categories
-                  .map(
-                    (item) => Expanded(
-                      child: _CategoryItem(
-                        data: item,
-                        accentColor: accentColor,
-                        isSelected: item.label == selectedCategory,
-                        onTap: () => onCategorySelected(item.label),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              transitionBuilder: (child, animation) {
+                final bool isIncoming = child.key == switchKey;
+                final Animation<double> effectiveAnimation =
+                    isIncoming ? animation : ReverseAnimation(animation);
+                final Offset beginOffset =
+                    isIncoming ? (isForward ? const Offset(1, 0) : const Offset(-1, 0)) : Offset.zero;
+                final Offset endOffset =
+                    isIncoming ? Offset.zero : (isForward ? const Offset(-1, 0) : const Offset(1, 0));
+
+                return SlideTransition(
+                  position: effectiveAnimation.drive(
+                    Tween<Offset>(begin: beginOffset, end: endOffset)
+                        .chain(CurveTween(curve: Curves.easeInOut)),
+                  ),
+                  child: child,
+                );
+              },
+              child: Row(
+                key: switchKey,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: categories
+                    .map(
+                      (item) => Expanded(
+                        child: _CategoryItem(
+                          data: item,
+                          accentColor: accentColor,
+                          isSelected: item.label == selectedCategory,
+                          onTap: () => onCategorySelected(item.label),
+                          isDark: isDark,
+                        ),
                       ),
-                    ),
-                  )
-                  .toList(),
+                    )
+                    .toList(),
+              ),
             ),
           ),
         ),
@@ -353,6 +433,7 @@ class _CategoryHeader extends StatelessWidget {
           icon: Icons.arrow_forward_ios,
           color: accentColor,
           onTap: onNext,
+          isDark: isDark,
         ),
       ],
     );
@@ -364,11 +445,13 @@ class _ArrowButton extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.onTap,
+    required this.isDark,
   });
 
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -377,7 +460,7 @@ class _ArrowButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? AppColors.darkButtons : Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: const [
             BoxShadow(
@@ -403,12 +486,14 @@ class _CategoryItem extends StatelessWidget {
     required this.accentColor,
     required this.isSelected,
     required this.onTap,
+    required this.isDark,
   });
 
   final CategoryItemData data;
   final Color accentColor;
   final bool isSelected;
   final VoidCallback onTap;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -423,7 +508,7 @@ class _CategoryItem extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? accentColor.withOpacity(0.1)
+                    ? accentColor.withOpacity(isDark ? 0.2 : 0.1)
                     : Colors.transparent,
                 shape: BoxShape.circle,
               ),
@@ -452,16 +537,51 @@ class _CategoryItem extends StatelessWidget {
   }
 }
 
+class _FavoriteButton extends StatelessWidget {
+  const _FavoriteButton({
+    required this.isFavorite,
+    required this.onTap,
+    required this.accentColor,
+  });
+
+  final bool isFavorite;
+  final Future<bool> Function() onTap;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black45,
+      shape: const CircleBorder(),
+      child: IconButton(
+        onPressed: () {
+          onTap();
+        },
+        icon: Icon(
+          isFavorite ? Icons.favorite : Icons.favorite_border,
+          color: isFavorite ? accentColor : Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
 class _ServiceCard extends StatefulWidget {
   const _ServiceCard({
     required this.data,
     required this.accentColor,
     required this.textTheme,
+    required this.isFavorite,
+    required this.onFavoriteTap,
+    required this.isDark,
   });
 
   final ServiceCardData data;
   final Color accentColor;
   final TextTheme textTheme;
+  final bool isFavorite;
+  final Future<bool> Function() onFavoriteTap;
+  final bool isDark;
 
   @override
   State<_ServiceCard> createState() => _ServiceCardState();
@@ -551,9 +671,16 @@ class _ServiceCardState extends State<_ServiceCard> {
     final hasMedia = widget.data.imageUrls.isNotEmpty;
     final mediaCount = hasMedia ? widget.data.imageUrls.length : 1;
 
+    final Color cardColor =
+        widget.isDark ? AppColors.darkButtons : Colors.white;
+    final Color primaryText =
+        widget.isDark ? AppColors.darkText : AppColors.textPrimary;
+    final Color secondaryText =
+        widget.isDark ? Colors.grey[300]! : Colors.grey[700]!;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
@@ -690,6 +817,15 @@ class _ServiceCardState extends State<_ServiceCard> {
                     ),
                   ),
                 ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: _FavoriteButton(
+                    isFavorite: widget.isFavorite,
+                    onTap: widget.onFavoriteTap,
+                    accentColor: Colors.redAccent,
+                  ),
+                ),
 
                 // Dots Indicator
                 Positioned(
@@ -728,6 +864,7 @@ class _ServiceCardState extends State<_ServiceCard> {
               widget.data.title,
               style: widget.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
+                color: primaryText,
               ),
             ),
           ),
@@ -739,22 +876,33 @@ class _ServiceCardState extends State<_ServiceCard> {
                   child: Text(
                     widget.data.providerName,
                     style: widget.textTheme.bodyMedium
-                        ?.copyWith(color: Colors.grey[700]),
+                        ?.copyWith(color: secondaryText),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Text(
-                  widget.data.rating.toStringAsFixed(1),
-                  style: widget.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                const SizedBox(width: 8),
+                if (widget.data.hasRatings) ...[
+                  Text(
+                    widget.data.ratingLabel,
+                    style: widget.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: primaryText,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.star,
-                  color: widget.accentColor,
-                  size: 20,
-                ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.star,
+                    color: widget.accentColor,
+                    size: 20,
+                  ),
+                ] else
+                  Text(
+                    'Sin calificaciones',
+                    style: widget.textTheme.bodySmall?.copyWith(
+                      color: widget.isDark ? Colors.grey[400] : Colors.grey[600],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -816,30 +964,41 @@ class _ImageArrow extends StatelessWidget {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({super.key, this.controller});
+  const _SearchField({super.key, this.controller, this.isDark = false});
 
   final TextEditingController? controller;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      style: TextStyle(
+        color: isDark ? AppColors.darkText : AppColors.textPrimary,
+      ),
       decoration: InputDecoration(
         hintText: 'Buscar servicios...',
+        hintStyle: TextStyle(
+          color: isDark ? Colors.grey[400] : Colors.grey[600],
+        ),
         prefixIcon: const Icon(
           Icons.search,
           color: Color.fromARGB(255, 26, 188, 156),
         ),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: isDark ? AppColors.darkButtons : Colors.white,
         contentPadding: const EdgeInsets.symmetric(vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.black12),
+          borderSide: BorderSide(
+            color: isDark ? AppColors.darkBorders : Colors.black12,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.black26),
+          borderSide: BorderSide(
+            color: isDark ? AppColors.darkBorders : Colors.black26,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -871,6 +1030,8 @@ class ServiceCardData {
     required this.providerName,
     required this.rating,
     required this.category,
+    this.categories = const [],
+    this.totalRatings = 0,
     required this.price,
     required this.description,
   });
@@ -882,8 +1043,14 @@ class ServiceCardData {
   final String providerName;
   final double rating;
   final String category;
+  final List<String> categories;
+  final int totalRatings;
   final double price;
   final String description;
+
+  bool get hasRatings => totalRatings > 0;
+  String get ratingLabel =>
+      hasRatings ? rating.toStringAsFixed(1) : 'Sin calificaciones';
 
   factory ServiceCardData.fromJson(Map<String, dynamic> json) {
     // Manejo seguro de listas que pueden venir nulas o vacías
@@ -912,17 +1079,12 @@ class ServiceCardData {
       title: json['nombre'] as String? ?? 'Servicio',
       providerName: json['usuarioNombre'] as String? ?? 'Proveedor',
       rating: (json['promedioCalificacion'] as num?)?.toDouble() ?? 0.0,
-      category: _mapCategory(categories.isNotEmpty ? categories.first : 'Varios'),
+      totalRatings: (json['totalCalificaciones'] as num?)?.toInt() ?? 0,
+      category: categories.isNotEmpty ? categories.first : 'Varios',
+      categories: categories,
       price: (json['precio'] as num?)?.toDouble() ?? 0.0,
       description: json['descripcion'] as String? ?? '',
     );
   }
 
-  static String _mapCategory(String raw) {
-    final lower = raw.toLowerCase();
-    if (lower.contains('música') || lower.contains('musica')) return 'Música';
-    if (lower.contains('fiesta')) return 'Fiestas';
-    if (lower.contains('baile') || lower.contains('danza')) return 'Baile';
-    return raw;
-  }
 }

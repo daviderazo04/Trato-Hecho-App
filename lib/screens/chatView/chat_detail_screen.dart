@@ -167,6 +167,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final userProvider = Provider.of<UserProvider>(context);
     final bool isDarkMode = themeProvider.isDarkMode;
     final int myUserId = userProvider.userId ?? 0;
+    final bool hasNumericRating = double.tryParse(widget.rating) != null;
 
     return Scaffold(
       backgroundColor: _backgroundColor(isDarkMode),
@@ -211,8 +212,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     fontSize: 16,
                   ),
                 ),
-                const SizedBox(width: 4),
-                const Icon(Icons.star, color: Colors.amber, size: 20),
+                if (hasNumericRating) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.star, color: Colors.amber, size: 20),
+                ],
               ],
             ),
           )

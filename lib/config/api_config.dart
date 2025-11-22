@@ -22,4 +22,5 @@ class ApiConfig {
   static String get login => '$baseUrl/auth/login';
   static String get chat => '$baseUrl/chat';
   static String get servicios => '$baseUrl/servicios';
+  static String get favoritosAgregar => '$baseUrl/favoritos/agregar';
 }

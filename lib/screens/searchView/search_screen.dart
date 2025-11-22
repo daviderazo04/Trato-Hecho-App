@@ -1,11 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 
+import '../../config/api_config.dart';
 import '../../config/appColors.dart';
-
-enum SearchMode {
-  services,
-  providers,
-}
+import '../../config/user_provider.dart';
+import '../../config/theme_provider.dart';
+import '../../services/favorites_service.dart';
+import '../homeView/home_screen.dart' show ServiceCardData;
+import '../homeView/service_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -15,172 +20,204 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  final TextEditingController _serviceController = TextEditingController();
-  final TextEditingController _locationController = TextEditingController();
-  final TextEditingController _dateController = TextEditingController();
+  final TextEditingController _queryController = TextEditingController();
 
-  SearchMode _mode = SearchMode.services;
-  String? _selectedBudget;
-  DateTime? _selectedDate;
+  List<ServiceCardData> _services = [];
+  List<ServiceCardData> _filtered = [];
+  Set<String> _selectedCategories = {};
+  List<String> _availableCategories = [];
+  final Set<int> _favoriteServiceIds = {};
+  final FavoritesService _favoritesService = FavoritesService();
 
-  final List<_SearchModeOption> _modeOptions = const [
-    _SearchModeOption(
-      mode: SearchMode.services,
-      icon: Icons.event_available,
-      label: 'Servicios',
-    ),
-    _SearchModeOption(
-      mode: SearchMode.providers,
-      icon: Icons.store_mall_directory,
-      label: 'Proveedores',
-    ),
-  ];
+  double _minPrice = 0;
+  double _maxPrice = 1000;
+  RangeValues _priceRange = const RangeValues(0, 1000);
 
-  final List<String> _budgetRanges = const [
-    'Hasta \$100',
-    '\$100 - \$300',
-    'Más de \$300',
-  ];
+  bool _onlyWithMedia = false;
+  bool _hideUnrated = false;
+  String _sortOption = 'relevance';
 
-  final List<String> _recentSearches = const [
-    'Mariachi en Quito',
-    'Animador infantil',
-    'Catering gourmet',
-  ];
+  bool _isLoading = true;
+  String? _error;
 
-  final List<SearchCategoryData> _categories = const [
-    SearchCategoryData(icon: Icons.celebration, label: 'Fiestas temáticas'),
-    SearchCategoryData(icon: Icons.music_note, label: 'Música en vivo'),
-    SearchCategoryData(icon: Icons.restaurant_menu, label: 'Catering'),
-    SearchCategoryData(icon: Icons.light, label: 'Iluminación y sonido'),
-    SearchCategoryData(icon: Icons.video_camera_back, label: 'Foto y video'),
-    SearchCategoryData(icon: Icons.chair, label: 'Alquiler de mobiliario'),
-  ];
-
-  final List<SearchHighlightData> _highlights = const [
-    SearchHighlightData(
-      title: 'Mariachi "El Sol"',
-      location: 'Quito, Ecuador',
-      priceLabel: 'Desde \$150',
-      rating: 4.6,
-      category: 'Música',
-      imageUrl:
-          'https://img.vorecol.com/ia-images/1502/mazamitla-mariachi15.jpeg',
-    ),
-    SearchHighlightData(
-      title: 'Animación infantil Blinky',
-      location: 'Cuenca, Ecuador',
-      priceLabel: 'Desde \$90',
-      rating: 4.2,
-      category: 'Fiestas',
-      imageUrl:
-          'https://boomerangfiesta.com/wp-content/uploads/2023/01/photo_2023-01-06_07-12-01-225x300.jpg',
-    ),
-    SearchHighlightData(
-      title: 'Banquetes Gourmet',
-      location: 'Guayaquil, Ecuador',
-      priceLabel: 'Desde \$18 p/p',
-      rating: 4.8,
-      category: 'Catering',
-      imageUrl:
-          'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _queryController.addListener(_applyFilters);
+    _fetchServices();
+  }
 
   @override
   void dispose() {
-    _serviceController.dispose();
-    _locationController.dispose();
-    _dateController.dispose();
+    _queryController
+      ..removeListener(_applyFilters)
+      ..dispose();
     super.dispose();
   }
 
-  Future<void> _pickDate() async {
-    FocusScope.of(context).unfocus();
-    final DateTime now = DateTime.now();
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? now,
-      firstDate: now,
-      lastDate: DateTime(now.year + 1),
-    );
+  Future<void> _fetchServices() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
-    if (picked != null) {
+    try {
+      final url = Uri.parse(ApiConfig.servicios);
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> decoded =
+            jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+
+        final services = decoded
+            .map((item) => ServiceCardData.fromJson(item as Map<String, dynamic>))
+            .toList();
+
+        final categories = <String>{};
+        for (final service in services) {
+          categories.addAll(service.categories);
+        }
+
+        setState(() {
+          _services = services;
+          _availableCategories = categories.toList()..sort();
+          _minPrice = 0;
+          _maxPrice = 1000;
+          _priceRange = const RangeValues(0, 1000);
+        });
+        _applyFilters();
+      } else {
+        setState(() {
+          _error = 'No se pudieron cargar los servicios (${response.statusCode})';
+        });
+      }
+    } catch (e) {
       setState(() {
-        _selectedDate = picked;
-        _dateController.text = _formatDate(picked);
+        _error = 'Error de conexión. Inténtalo de nuevo.';
       });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  String _formatDate(DateTime date) {
-    const List<String> monthNames = [
-      'enero',
-      'febrero',
-      'marzo',
-      'abril',
-      'mayo',
-      'junio',
-      'julio',
-      'agosto',
-      'septiembre',
-      'octubre',
-      'noviembre',
-      'diciembre',
-    ];
-    return '${date.day} de ${monthNames[date.month - 1]} ${date.year}';
+  void _applyFilters() {
+    final query = _queryController.text.toLowerCase();
+
+    List<ServiceCardData> temp = _services.where((service) {
+      final matchesText = query.isEmpty ||
+          service.title.toLowerCase().contains(query) ||
+          service.providerName.toLowerCase().contains(query) ||
+          service.categories.any((c) => c.toLowerCase().contains(query));
+
+      final matchesCategory = _selectedCategories.isEmpty ||
+          service.categories.any((c) => _selectedCategories.contains(c));
+
+      final matchesPrice =
+          service.price >= _priceRange.start && service.price <= _priceRange.end;
+
+      final matchesMedia = !_onlyWithMedia || service.imageUrls.isNotEmpty;
+      final matchesRating = !_hideUnrated || service.hasRatings;
+
+      return matchesText && matchesCategory && matchesPrice && matchesMedia && matchesRating;
+    }).toList();
+
+    temp.sort((a, b) {
+      switch (_sortOption) {
+        case 'rating':
+          return b.rating.compareTo(a.rating);
+        case 'price_low':
+          return a.price.compareTo(b.price);
+        case 'price_high':
+          return b.price.compareTo(a.price);
+        case 'recent':
+          return (b.id ?? 0).compareTo(a.id ?? 0);
+        default:
+          return 0;
+      }
+    });
+
+    setState(() => _filtered = temp);
   }
 
-  void _onSearch() {
-    final String modeLabel =
-        _mode == SearchMode.services ? 'servicios' : 'proveedores';
-    final String serviceLabel =
-        _serviceController.text.isEmpty ? 'todo' : _serviceController.text;
-    final String locationLabel = _locationController.text.isEmpty
-        ? 'cualquier ciudad'
-        : _locationController.text;
+  void _toggleCategory(String category) {
+    setState(() {
+      if (_selectedCategories.contains(category)) {
+        _selectedCategories.remove(category);
+      } else {
+        _selectedCategories.add(category);
+      }
+    });
+    _applyFilters();
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Buscando $modeLabel de "$serviceLabel" en $locationLabel',
-        ),
-      ),
-    );
+  void _resetFilters() {
+    setState(() {
+      _selectedCategories.clear();
+      _onlyWithMedia = false;
+      _hideUnrated = false;
+      _sortOption = 'relevance';
+      _priceRange = RangeValues(_minPrice, _maxPrice);
+      _queryController.clear();
+    });
+    _applyFilters();
+  }
+
+  Future<bool> _toggleFavorite(ServiceCardData service, BuildContext context,
+      {bool? desiredState}) async {
+    final serviceId = service.id;
+    if (serviceId == null) return false;
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.userId;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes iniciar sesión para guardar favoritos')),
+      );
+      return false;
+    }
+
+    final isFav = _favoriteServiceIds.contains(serviceId);
+    final target = desiredState ?? !isFav;
+    if (target == isFav) return true;
+
+    if (target) {
+      setState(() => _favoriteServiceIds.add(serviceId));
+      final success =
+          await _favoritesService.addFavorite(userId: userId, serviceId: serviceId);
+      if (!success) {
+        setState(() => _favoriteServiceIds.remove(serviceId));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo agregar a favoritos')),
+        );
+      }
+      return success;
+    } else {
+      setState(() => _favoriteServiceIds.remove(serviceId));
+      return true;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final Color scaffoldBg =
+        isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: scaffoldBg,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: RefreshIndicator(
+          onRefresh: _fetchServices,
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: 24),
             children: [
-              _buildHeroCard(context),
-              const SizedBox(height: 24),
-              _SectionHeader(
-                title: 'Recomendados para ti',
-                subtitle: 'Descubre talentos destacados para tu evento',
-              ),
+              _buildHeader(isDark),
               const SizedBox(height: 12),
-              _buildHighlights(),
-              const SizedBox(height: 28),
-              _SectionHeader(
-                title: 'Explora por categoría',
-                subtitle: 'Encuentra especialistas según el tipo de servicio',
-              ),
+              _buildFiltersCard(isDark),
               const SizedBox(height: 12),
-              _buildCategoryWrap(),
-              const SizedBox(height: 28),
-              _SectionHeader(
-                title: 'Búsquedas recientes',
-                subtitle: 'Retoma donde te quedaste',
-              ),
-              const SizedBox(height: 12),
-              _buildRecentChips(),
+              _buildResults(isDark),
             ],
           ),
         ),
@@ -188,503 +225,697 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildHeroCard(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(26),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.primary,
-              AppColors.secondary,
-            ],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.28),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
-            ),
+  Widget _buildHeader(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.primary,
+            AppColors.secondary,
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildModeSelector(),
-              const SizedBox(height: 24),
-              Text(
-                'Planifica el evento perfecto',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Busca talento, proveedores o paquetes personalizados en cuestión de minutos.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-              ),
-              const SizedBox(height: 28),
-              _buildSearchForm(context),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildModeSelector() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
-        borderRadius: BorderRadius.circular(32),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-      child: Row(
-        children: _modeOptions.map((option) {
-          final bool isSelected = option.mode == _mode;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                if (!isSelected) {
-                  setState(() {
-                    _mode = option.mode;
-                  });
-                }
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected ? Colors.white : Colors.transparent,
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      option.icon,
-                      size: 28,
-                      color: isSelected ? AppColors.primary : Colors.white,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      option.label,
-                      style: TextStyle(
-                        color: isSelected ? AppColors.primary : Colors.white,
-                        fontWeight:
-                            isSelected ? FontWeight.w700 : FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildSearchForm(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    // FIX: Removed 'as InputDecorationTheme'
-    final fieldTheme = theme.inputDecorationTheme.copyWith(
-      fillColor: AppColors.backgroundWhite,
-    );
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: AppColors.primary.withOpacity(0.25),
             blurRadius: 16,
-            offset: const Offset(0, 6),
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(18),
-      child: Theme(
-        data: theme.copyWith(inputDecorationTheme: fieldTheme),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildLabel('¿Qué necesitas?'),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _serviceController,
-              decoration: _inputDecoration(
-                hint: 'Mariachi, fotógrafo, animador...',
-                icon: Icons.search,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Fecha del evento'),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _dateController,
-                        readOnly: true,
-                        onTap: _pickDate,
-                        decoration: _inputDecoration(
-                          hint: 'Selecciona fecha',
-                          icon: Icons.calendar_today,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Ciudad'),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _locationController,
-                        decoration: _inputDecoration(
-                          hint: 'Quito, Guayaquil...',
-                          icon: Icons.location_on_outlined,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildLabel('Presupuesto estimado'),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              isExpanded: true,
-              value: _selectedBudget,
-              items: _budgetRanges
-                  .map(
-                    (range) => DropdownMenuItem<String>(
-                      value: range,
-                      child: Text(range),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedBudget = value;
-                });
-              },
-              decoration: _inputDecoration(
-                hint: 'Selecciona un rango',
-                icon: Icons.price_check,
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _onSearch,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.secondary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Text(
-                  'Buscar opciones',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration({required String hint, IconData? icon}) {
-    return InputDecoration(
-      hintText: hint,
-      prefixIcon: icon != null
-          ? Icon(
-              icon,
-              color: AppColors.primary,
-            )
-          : null,
-      filled: true,
-      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(
-          color: AppColors.primary,
-          width: 2,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHighlights() {
-    return SizedBox(
-      height: 222,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: _highlights.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
-        itemBuilder: (context, index) {
-          final highlight = _highlights[index];
-          return _HighlightCard(data: highlight);
-        },
-      ),
-    );
-  }
-
-  Widget _buildCategoryWrap() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: _categories
-            .map(
-              (category) => Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      category.icon,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      category.label,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
-
-  Widget _buildRecentChips() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: _recentSearches
-            .map(
-              (search) => Chip(
-                label: Text(search),
-                backgroundColor: AppColors.backgroundWhite,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: const BorderSide(color: AppColors.border),
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary,
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.title,
-    required this.subtitle,
-  });
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+            'Busca servicios',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
                 ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
-            subtitle,
+            'Encuentra por nombre, categoría o proveedor.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: Colors.white.withOpacity(0.9),
                 ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: _queryController,
+              decoration: InputDecoration(
+                hintText: 'Ej: mariachi, fotografía, David...',
+                prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Colors.transparent),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Colors.transparent),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: AppColors.accent, width: 2),
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildFiltersCard(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkButtons : const Color(0xFFF7FBFF),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+              color: (isDark ? AppColors.darkBorders : AppColors.primary)
+                  .withOpacity(0.08)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.tune, color: AppColors.accent),
+                const SizedBox(width: 8),
+                Text(
+                  'Filtros inteligentes',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _resetFilters,
+                  icon: Icon(
+                    Icons.refresh,
+                    size: 18,
+                    color: isDark ? Colors.white : AppColors.primary,
+                  ),
+                  label: Text(
+                    'Limpiar',
+                    style: TextStyle(
+                      color: isDark ? Colors.white : AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    side: BorderSide(
+                      color: isDark ? Colors.white : AppColors.primary,
+                      width: 1.2,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildCategories(isDark),
+            const SizedBox(height: 12),
+            _buildPriceSlider(_priceRange, isDark),
+            const SizedBox(height: 12),
+            _buildToggles(),
+            const SizedBox(height: 12),
+            _buildSortSelector(isDark),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategories(bool isDark) {
+    if (_availableCategories.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FilterLabel('Categorías', isDark: isDark),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 40,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _availableCategories.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final cat = _availableCategories[index];
+              final isSelected = _selectedCategories.contains(cat);
+              return ChoiceChip(
+                label: Text(
+                  cat,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                selected: isSelected,
+                onSelected: (_) => _toggleCategory(cat),
+                selectedColor: AppColors.secondary.withOpacity(0.18),
+                labelStyle: TextStyle(
+                  color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: isSelected ? AppColors.secondary : AppColors.border,
+                  ),
+                ),
+                backgroundColor: Colors.white,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPriceSlider(RangeValues range, bool isDark) {
+    final bool hasRange = _maxPrice - _minPrice > 0.1;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FilterLabel('Precio', isDark: isDark),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _PriceTag(label: 'Mín', value: range.start, isDark: isDark),
+            _PriceTag(label: 'Máx', value: range.end, isDark: isDark),
+          ],
+        ),
+        RangeSlider(
+          values: range,
+          min: _minPrice,
+          max: _maxPrice <= _minPrice ? _minPrice + 1 : _maxPrice,
+          divisions: hasRange ? 20 : null,
+          activeColor: AppColors.secondary,
+          inactiveColor: AppColors.border,
+          labels: RangeLabels(
+            '\$${range.start.toStringAsFixed(0)}',
+            '\$${range.end.toStringAsFixed(0)}',
+          ),
+          onChanged: (values) {
+            setState(() {
+              _priceRange = values;
+            });
+            _applyFilters();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildToggles() {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      children: [
+        FilterChip(
+          label: const Text('Solo con fotos/video'),
+          selected: _onlyWithMedia,
+          onSelected: (value) {
+            setState(() => _onlyWithMedia = value);
+            _applyFilters();
+          },
+          selectedColor: AppColors.secondary.withOpacity(0.18),
+          labelStyle: TextStyle(
+            color: _onlyWithMedia ? AppColors.primary : AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: _onlyWithMedia ? AppColors.secondary : AppColors.border,
+            ),
+          ),
+        ),
+        FilterChip(
+          label: const Text('Ocultar sin calificaciones'),
+          selected: _hideUnrated,
+          onSelected: (value) {
+            setState(() => _hideUnrated = value);
+            _applyFilters();
+          },
+          selectedColor: AppColors.secondary.withOpacity(0.18),
+          labelStyle: TextStyle(
+            color: _hideUnrated ? AppColors.primary : AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: _hideUnrated ? AppColors.secondary : AppColors.border,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSortSelector(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FilterLabel('Ordenar por', isDark: isDark),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _sortOption,
+          isDense: false,
+          itemHeight: 52,
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            filled: true,
+            fillColor: isDark ? AppColors.darkButtons : Colors.white,
+          ),
+          items: [
+            DropdownMenuItem(
+              value: 'relevance',
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white10 : AppColors.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Relevancia',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+            DropdownMenuItem(value: 'rating', child: Text('Mejor calificados')),
+            DropdownMenuItem(value: 'price_low', child: Text('Menor precio')),
+            DropdownMenuItem(value: 'price_high', child: Text('Mayor precio')),
+            DropdownMenuItem(value: 'recent', child: Text('Más recientes')),
+          ],
+          selectedItemBuilder: (context) {
+            return [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  'Relevancia',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : AppColors.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Text('Mejor calificados'),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Text('Menor precio'),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Text('Mayor precio'),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Text('Más recientes'),
+              ),
+            ];
+          },
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() => _sortOption = value);
+            _applyFilters();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResults(bool isDark) {
+    if (_isLoading) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 80),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+        child: Column(
+          children: [
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: _fetchServices,
+              child: const Text('Reintentar'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_filtered.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+        child: Column(
+          children: [
+            const Icon(Icons.search_off, size: 48, color: AppColors.border),
+            const SizedBox(height: 12),
+            Text(
+              'No se encontraron servicios con estos filtros',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: _filtered
+          .map(
+            (service) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: _ResultCard(
+                data: service,
+                isFavorite: service.id != null &&
+                    _favoriteServiceIds.contains(service.id),
+                onFavoriteTap: () => _toggleFavorite(service, context),
+                isDark: isDark,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ServiceDetailScreen(
+                        data: service,
+                        isFavorite: service.id != null &&
+                            _favoriteServiceIds.contains(service.id),
+                        onFavoriteToggle: (isFav) =>
+                            _toggleFavorite(service, context, desiredState: isFav),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
 }
 
-class _HighlightCard extends StatelessWidget {
-  const _HighlightCard({required this.data});
-
-  final SearchHighlightData data;
+class _FilterLabel extends StatelessWidget {
+  const _FilterLabel(this.text, {this.isDark = false});
+  final String text;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 220,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Stack(
-          fit: StackFit.expand,
+    return Text(
+      text,
+      style: TextStyle(
+        fontWeight: FontWeight.w700,
+        color: isDark ? AppColors.darkText : AppColors.textPrimary,
+      ),
+    );
+  }
+}
+
+class _PriceTag extends StatelessWidget {
+  const _PriceTag({required this.label, required this.value, this.isDark = false});
+  final String label;
+  final double value;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: isDark ? Colors.grey[300] : AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            '\$${value.toStringAsFixed(0)}',
+            style: TextStyle(
+              color: isDark ? AppColors.darkText : AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ResultCard extends StatelessWidget {
+  const _ResultCard({
+    required this.data,
+    required this.isFavorite,
+    required this.onFavoriteTap,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final ServiceCardData data;
+  final bool isFavorite;
+  final Future<bool> Function() onFavoriteTap;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  bool get _hasMedia => data.imageUrls.isNotEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratingText = data.ratingLabel;
+    final Color cardColor =
+        isDark ? AppColors.darkButtons : Colors.white;
+    final Color primaryText =
+        isDark ? AppColors.darkText : AppColors.textPrimary;
+    final Color secondaryText =
+        isDark ? Colors.grey[300]! : Colors.grey.shade700;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Positioned.fill(
-              child: Image.network(
-                data.imageUrl,
-                fit: BoxFit.cover,
-              ),
-            ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.08),
-                      Colors.black.withOpacity(0.72),
-                    ],
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Stack(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: _hasMedia
+                        ? Image.network(
+                            data.imageUrls.first,
+                            fit: BoxFit.cover,
+                          )
+                        : Container(
+                            color: Colors.grey.shade200,
+                            child: const Icon(
+                              Icons.image_not_supported,
+                              color: Colors.black38,
+                              size: 48,
+                            ),
+                          ),
                   ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 12,
-              left: 12,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.88),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  data.category,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                    color: AppColors.textPrimary,
+                  Positioned(
+                    bottom: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.25),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        '\$${data.price.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    child: Material(
+                      color: Colors.black45,
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        onPressed: () {
+                          onFavoriteTap();
+                        },
+                        icon: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: isFavorite ? Colors.redAccent : Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            Positioned(
-              bottom: 16,
-              left: 14,
-              right: 14,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    data.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    data.location,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
                   Row(
                     children: [
-                      Icon(
-                        Icons.star_rounded,
-                        color: AppColors.notificacion,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        data.rating.toStringAsFixed(1),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Text(
+                          data.title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            color: primaryText,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Text(
-                        data.priceLabel,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      const SizedBox(width: 8),
+                      Row(
+                        children: [
+                          Text(
+                            ratingText,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: primaryText,
+                            ),
+                          ),
+                          if (data.hasRatings)
+                            const Icon(Icons.star_rounded,
+                                size: 18, color: AppColors.notificacion),
+                        ],
                       ),
                     ],
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    data.providerName,
+                    style: TextStyle(
+                      color: secondaryText,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: data.categories
+                        .take(3)
+                        .map(
+                          (cat) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.08)
+                                  : AppColors.primary.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isDark ? Colors.white : AppColors.primary,
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Text(
+                              cat,
+                              style: TextStyle(
+                                color: isDark ? Colors.white : AppColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    data.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isDark ? Colors.grey[300] : Colors.grey.shade800,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
@@ -693,44 +924,4 @@ class _HighlightCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class SearchCategoryData {
-  const SearchCategoryData({
-    required this.icon,
-    required this.label,
-  });
-
-  final IconData icon;
-  final String label;
-}
-
-class SearchHighlightData {
-  const SearchHighlightData({
-    required this.title,
-    required this.location,
-    required this.priceLabel,
-    required this.rating,
-    required this.category,
-    required this.imageUrl,
-  });
-
-  final String title;
-  final String location;
-  final String priceLabel;
-  final double rating;
-  final String category;
-  final String imageUrl;
-}
-
-class _SearchModeOption {
-  const _SearchModeOption({
-    required this.mode,
-    required this.icon,
-    required this.label,
-  });
-
-  final SearchMode mode;
-  final IconData icon;
-  final String label;
 }
