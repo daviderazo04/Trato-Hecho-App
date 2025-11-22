@@ -33,6 +33,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   final Map<int, VideoPlayerController> _videoControllers = {};
   final Map<int, Future<void>> _initializeVideoFutures = {};
   late bool _isFavorite;
+  final int _navbarIndex = 0;
 
   @override
   void initState() {
@@ -192,20 +193,21 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Chip(
-                    label: Text(widget.data.category),
-                    backgroundColor: isDarkMode
-                        ? contactButtonColor
-                        : AppColors.primary.withOpacity(0.1),
-                    labelStyle: TextStyle(
-                      color: isDarkMode ? Colors.white : AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(
-                        color: isDarkMode ? Colors.white : Colors.transparent,
-                        width: 1.5,
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        widget.data.category,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
@@ -244,58 +246,67 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                       height: 1.5,
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ChatDetailScreen(
+                              receiverId: widget.data.providerId,
+                              serviceId: widget.data.id,
+                              chatName: widget.data.title,
+                              chatSubtitle: widget.data.providerName,
+                              rating: widget.data.rating.toStringAsFixed(1),
+                              serviceImage: widget.data.imageUrls.isNotEmpty
+                                  ? widget.data.imageUrls.first
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            isDarkMode ? darkBlueColor : contactButtonColor,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: isDarkMode
+                              ? const BorderSide(
+                                  color: Colors.white, width: 1.5)
+                              : BorderSide.none,
+                        ),
+                        elevation: isDarkMode ? 0 : 2,
+                      ),
+                      child: const Text(
+                        'Contactar',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 100),
           ],
         ),
       ),
-      bottomNavigationBar: Container(
-        color: _backgroundColor(isDarkMode),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: SafeArea(
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ChatDetailScreen(
-                    receiverId: widget.data.providerId,
-                    // --- CORRECCIÓN: Enviamos el ID del servicio ---
-                    serviceId: widget.data.id,
-                    // -----------------------------------------------
-                    chatName: widget.data.title, // Nombre del servicio arriba
-                    chatSubtitle: widget.data.providerName, // Proveedor abajo
-                    rating: widget.data.rating.toStringAsFixed(1),
-                    serviceImage: widget.data.imageUrls.isNotEmpty 
-                        ? widget.data.imageUrls.first 
-                        : null,
-                  ),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isDarkMode ? darkBlueColor : contactButtonColor,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-                side: isDarkMode
-                    ? const BorderSide(color: Colors.white, width: 2.0)
-                    : BorderSide.none,
-              ),
-              elevation: isDarkMode ? 0 : 2,
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: _navbarIndex,
+        hasUnreadMessages: false,
+        onTap: (int index) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MainNavigator(initialIndex: index),
             ),
-            child: const Text(
-              'Contactar',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -392,9 +403,9 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: darkBlueColor,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white, width: 2.0),
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white, width: 1.5),
               boxShadow: [
                 BoxShadow(
                     color: Colors.black.withOpacity(0.3),
@@ -405,7 +416,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
             child: Text(
               '\$ ${widget.data.price.toStringAsFixed(2)}',
               style: const TextStyle(
-                color: AppColors.backgroundWhite,
+                color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
             ),
