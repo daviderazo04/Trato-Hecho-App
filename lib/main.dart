@@ -75,14 +75,16 @@ class MyApp extends StatelessWidget {
 
 // --- MAIN NAVIGATOR ---
 class MainNavigator extends StatefulWidget {
-  const MainNavigator({super.key});
+  const MainNavigator({super.key, this.initialIndex = 0});
+
+  final int initialIndex;
 
   @override
   State<MainNavigator> createState() => _MainNavigatorState();
 }
 
 class _MainNavigatorState extends State<MainNavigator> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
   bool _hasUnreadMessages = false;
 
   void _updateUnreadStatus(bool hasUnread) {
@@ -98,6 +100,7 @@ class _MainNavigatorState extends State<MainNavigator> {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = _sanitizeIndex(widget.initialIndex);
     _widgetOptions = <Widget>[
       HomeFeedScreen(),
       const SearchScreen(),
@@ -106,6 +109,12 @@ class _MainNavigatorState extends State<MainNavigator> {
       ),
       const UsuarioView(),
     ];
+  }
+
+  int _sanitizeIndex(int index) {
+    if (index < 0) return 0;
+    if (index > 3) return 3;
+    return index;
   }
 
   void _onItemTapped(int index) {

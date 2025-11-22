@@ -10,15 +10,15 @@ class ApiConfig {
         return envUrl;
       }
     }
-    
+
     // Fallback seguro
     if (Platform.isAndroid) {
-      return 'http://10.0.2.2:9090/api'; 
+      return 'http://10.0.2.2:8080/api';
     } else {
-      return 'http://localhost:9090/api'; 
+      return 'http://localhost:8080/api';
     }
   }
-  
+
   static String get login => '$baseUrl/auth/login';
   static String get chat => '$baseUrl/chat';
   static String get servicios => '$baseUrl/servicios';

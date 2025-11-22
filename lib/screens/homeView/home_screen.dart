@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
@@ -21,11 +22,51 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   String? _selectedCategory;
   bool _isLoading = true;
   String? _error;
+  int _categoryOffset = 0;
+  static const int _categoryWindowSize = 3;
+  bool _isCategoryForward = true;
 
   final List<CategoryItemData> _categories = const [
-    CategoryItemData(icon: Icons.celebration, label: 'Fiestas'),
-    CategoryItemData(icon: Icons.music_note, label: 'Música'),
-    CategoryItemData(icon: Icons.emoji_people, label: 'Baile'),
+    CategoryItemData(
+      icon: Icons.music_note,
+      label: 'Música Tradicional y Mariachis',
+    ),
+    CategoryItemData(
+      icon: Icons.celebration,
+      label: 'Animación Infantil y Payasos',
+    ),
+    CategoryItemData(
+      icon: Icons.restaurant_menu,
+      label: 'Catering y Comida',
+    ),
+    CategoryItemData(
+      icon: Icons.headphones,
+      label: 'Música Moderna y DJs',
+    ),
+    CategoryItemData(
+      icon: Icons.photo_camera,
+      label: 'Fotografía y Video',
+    ),
+    CategoryItemData(
+      icon: Icons.brush,
+      label: 'Decoración y Ambientación',
+    ),
+    CategoryItemData(
+      icon: Icons.event_seat,
+      label: 'Mobiliario y Logística',
+    ),
+    CategoryItemData(
+      icon: Icons.theater_comedy,
+      label: 'Entretenimiento Variado',
+    ),
+    CategoryItemData(
+      icon: Icons.handyman,
+      label: 'Servicios Adicionales',
+    ),
+    CategoryItemData(
+      icon: Icons.toys,
+      label: 'Juegos e Inflables',
+    ),
   ];
 
   @override
@@ -116,6 +157,24 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     _filterServices();
   }
 
+  void _shiftCategories(bool forward) {
+    if (_categories.isEmpty) return;
+    final step = _categoryWindowSize;
+    _isCategoryForward = forward;
+    setState(() {
+      _categoryOffset = (_categoryOffset + (forward ? step : -step)) % _categories.length;
+      if (_categoryOffset < 0) _categoryOffset += _categories.length;
+    });
+  }
+
+  List<CategoryItemData> _currentCategoryWindow() {
+    if (_categories.isEmpty) return const [];
+    return List.generate(
+      _categoryWindowSize,
+      (index) => _categories[(_categoryOffset + index) % _categories.length],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -156,10 +215,14 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             _SearchField(controller: _searchController),
             const SizedBox(height: 24),
             _CategoryHeader(
-              categories: _categories,
+              categories: _currentCategoryWindow(),
               accentColor: accentColor,
               selectedCategory: _selectedCategory,
               onCategorySelected: _selectCategory,
+              onPrevious: () => _shiftCategories(false),
+              onNext: () => _shiftCategories(true),
+              switchKey: ValueKey<int>(_categoryOffset),
+              isForward: _isCategoryForward,
             ),
             const SizedBox(height: 24),
             if (_filteredServices.isEmpty)
@@ -223,12 +286,20 @@ class _CategoryHeader extends StatelessWidget {
     required this.accentColor,
     required this.selectedCategory,
     required this.onCategorySelected,
+    required this.onPrevious,
+    required this.onNext,
+    required this.switchKey,
+    required this.isForward,
   });
 
   final List<CategoryItemData> categories;
   final Color accentColor;
   final String? selectedCategory;
   final Function(String) onCategorySelected;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+  final Key switchKey;
+  final bool isForward;
 
   @override
   Widget build(BuildContext context) {
@@ -238,21 +309,51 @@ class _CategoryHeader extends StatelessWidget {
         _ArrowButton(
           icon: Icons.arrow_back_ios_new,
           color: accentColor,
+          onTap: onPrevious,
         ),
         Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: categories
-                .map((item) => _CategoryItem(
-                      data: item,
-                      accentColor: accentColor,
-                      isSelected: item.label == selectedCategory,
-                      onTap: () => onCategorySelected(item.label),
-                    ))
-                .toList(),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 350),
+            transitionBuilder: (child, animation) {
+              final bool isIncoming = child.key == switchKey;
+              final Animation<double> effectiveAnimation =
+                  isIncoming ? animation : ReverseAnimation(animation);
+              final Offset beginOffset =
+                  isIncoming ? (isForward ? const Offset(1, 0) : const Offset(-1, 0)) : Offset.zero;
+              final Offset endOffset =
+                  isIncoming ? Offset.zero : (isForward ? const Offset(-1, 0) : const Offset(1, 0));
+
+              return SlideTransition(
+                position: effectiveAnimation.drive(
+                  Tween<Offset>(begin: beginOffset, end: endOffset)
+                      .chain(CurveTween(curve: Curves.easeInOut)),
+                ),
+                child: child,
+              );
+            },
+            child: Row(
+              key: switchKey,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: categories
+                  .map(
+                    (item) => Expanded(
+                      child: _CategoryItem(
+                        data: item,
+                        accentColor: accentColor,
+                        isSelected: item.label == selectedCategory,
+                        onTap: () => onCategorySelected(item.label),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
           ),
         ),
-        _ArrowButton(icon: Icons.arrow_forward_ios, color: accentColor),
+        _ArrowButton(
+          icon: Icons.arrow_forward_ios,
+          color: accentColor,
+          onTap: onNext,
+        ),
       ],
     );
   }
@@ -262,30 +363,35 @@ class _ArrowButton extends StatelessWidget {
   const _ArrowButton({
     required this.icon,
     required this.color,
+    required this.onTap,
   });
 
   final IconData icon;
   final Color color;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Icon(
-        icon,
-        size: 18,
-        color: color,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: color,
+        ),
       ),
     );
   }
@@ -308,32 +414,39 @@ class _CategoryItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? accentColor.withOpacity(0.1)
-                  : Colors.transparent,
-              shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? accentColor.withOpacity(0.1)
+                    : Colors.transparent,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                data.icon,
+                color: accentColor,
+                size: 32,
+              ),
             ),
-            child: Icon(
-              data.icon,
-              color: accentColor,
-              size: 36,
+            const SizedBox(height: 6),
+            Text(
+              data.label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: accentColor,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                fontSize: 12,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            data.label,
-            style: TextStyle(
-              color: accentColor,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:trato_hecho_app/main.dart' show MainNavigator;
 import 'package:video_player/video_player.dart';
-// Importamos el modelo de datos que está en 'home_screen.dart'
-import 'home_screen.dart' show ServiceCardData;
+
+import '../../config/appColors.dart';
+import '../../config/theme_provider.dart';
+import '../../widgets/custom_bottom_nav_bar.dart';
 // Importamos la pantalla de chat
 import '../chatView/chat_detail_screen.dart';
-import '../../config/theme_provider.dart';
-import '../../config/appColors.dart';
+// Importamos el modelo de datos que está en 'home_screen.dart'
+import 'home_screen.dart' show ServiceCardData;
 
 class ServiceDetailScreen extends StatefulWidget {
   final ServiceCardData data;
@@ -106,13 +109,22 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     );
   }
 
+  void _onNavTap(int index) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MainNavigator(initialIndex: index),
+      ),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
     final bool isDarkMode = themeProvider.isDarkMode;
 
-    final Color accentColor = AppColors.primary;
     final Color contactButtonColor = AppColors.notificacion;
     final Color darkBlueColor = const Color.fromRGBO(7, 39, 64, 1);
 
@@ -155,7 +167,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildImageCarousel(context, isDarkMode, darkBlueColor),
+            _buildImageCarousel(context, isDarkMode),
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -163,19 +175,14 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                 children: [
                   Chip(
                     label: Text(widget.data.category),
-                    backgroundColor: isDarkMode
-                        ? contactButtonColor
-                        : accentColor.withOpacity(0.1),
-                    labelStyle: TextStyle(
-                      color: isDarkMode ? Colors.white : accentColor,
+                    backgroundColor: AppColors.primary,
+                    labelStyle: const TextStyle(
+                      color: Colors.white,
                       fontWeight: FontWeight.w600,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(
-                        color: isDarkMode ? Colors.white : Colors.transparent,
-                        width: 1.5,
-                      ),
+                      side: BorderSide.none,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -220,52 +227,66 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: Container(
-        color: _backgroundColor(isDarkMode),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: SafeArea(
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ChatDetailScreen(
-                    receiverId: widget.data.providerId,
-                    // --- CORRECCIÓN AQUÍ: INVERTIMOS LOS NOMBRES ---
-                    chatName: widget.data.providerName, // Nombre: Jhon Tonsupa
-                    chatSubtitle: widget.data.title,    // Subtítulo: Payaso Bombón
-                    // ----------------------------------------------
-                    rating: widget.data.rating.toStringAsFixed(1),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              color: _backgroundColor(isDarkMode),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatDetailScreen(
+                          receiverId: widget.data.providerId,
+                          // --- CORRECCIÓN AQUÍ: INVERTIMOS LOS NOMBRES ---
+                          chatName: widget.data.providerName, // Nombre: Jhon Tonsupa
+                          chatSubtitle: widget.data.title,    // Subtítulo: Payaso Bombón
+                          // ----------------------------------------------
+                          rating: widget.data.rating.toStringAsFixed(1),
+                        ),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        isDarkMode ? darkBlueColor : contactButtonColor,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      side: isDarkMode
+                          ? const BorderSide(color: Colors.white, width: 2.0)
+                          : BorderSide.none,
+                    ),
+                    elevation: isDarkMode ? 0 : 2,
+                  ),
+                  child: const Text(
+                    'Contactar',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isDarkMode ? darkBlueColor : contactButtonColor,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-                side: isDarkMode
-                    ? const BorderSide(color: Colors.white, width: 2.0)
-                    : BorderSide.none,
-              ),
-              elevation: isDarkMode ? 0 : 2,
-            ),
-            child: const Text(
-              'Contactar',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
               ),
             ),
-          ),
+            CustomBottomNavBar(
+              currentIndex: 0,
+              onTap: _onNavTap,
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildImageCarousel(BuildContext context, bool isDarkMode, Color darkBlueColor) {
+  Widget _buildImageCarousel(BuildContext context, bool isDarkMode) {
     final hasMedia = widget.data.imageUrls.isNotEmpty;
     final mediaCount = hasMedia ? widget.data.imageUrls.length : 1;
 
@@ -357,7 +378,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: darkBlueColor,
+              color: AppColors.primary,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white, width: 2.0),
               boxShadow: [
