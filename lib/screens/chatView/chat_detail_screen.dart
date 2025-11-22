@@ -7,8 +7,8 @@ import '../../services/chat_service.dart';
 import '../../models/chat_models.dart';
 
 class ChatDetailScreen extends StatefulWidget {
-  final int? conId;       // ID de Conversación (Si viene del Inbox)
-  final int? receiverId;  // ID del otro usuario (Si viene de "Contactar")
+  final int? conId;       
+  final int? receiverId;  
   final String chatName;
   final String chatSubtitle;
   final String rating;
@@ -32,24 +32,63 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
-  int? _currentConId; // Para guardar el ID si se crea uno nuevo
+  int? _currentConId; 
 
   @override
   void initState() {
     super.initState();
     _currentConId = widget.conId;
+    
+    // --- DEBUG LOGS ---
+    print("--- INICIANDO CHAT ---");
+    print("Nombre: ${widget.chatName}");
+    print("conId inicial: $_currentConId");
+    print("receiverId (Proveedor): ${widget.receiverId}");
+    // ------------------
+
     _loadHistory();
   }
 
   Future<void> _loadHistory() async {
     final myUserId = Provider.of<UserProvider>(context, listen: false).userId;
-    if (_currentConId == null || myUserId == null) {
+    print("Mi UserID: $myUserId"); // Debug
+    
+    if (myUserId == null) {
+      print("Error: No hay usuario logueado");
       setState(() => _isLoading = false);
       return;
     }
 
+    // 1. Buscar conversación si no tenemos ID
+    if (_currentConId == null && widget.receiverId != null) {
+      print("Buscando conversación entre $myUserId y ${widget.receiverId}...");
+      try {
+        final existingId = await _chatService.checkConversation(myUserId, widget.receiverId!);
+        print("Respuesta del servidor (Conversation ID): $existingId");
+        
+        if (existingId != null) {
+          _currentConId = existingId; 
+        }
+      } catch (e) {
+        print("Error buscando conversación: $e");
+      }
+    } else {
+      print("Saltando búsqueda: Ya tenemos conId ($_currentConId) o falta receiverId");
+    }
+
+    // 2. Si sigue siendo null, es nuevo
+    if (_currentConId == null) {
+      print("Resultado: Chat NUEVO (Vacío)");
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    // 3. Cargar mensajes
+    print("Cargando historial del chat ID: $_currentConId...");
     try {
       final msgs = await _chatService.getHistory(_currentConId!, myUserId);
+      print("Mensajes cargados: ${msgs.length}");
+      
       if (mounted) {
         setState(() {
           _messages = msgs;
@@ -57,7 +96,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         });
       }
     } catch (e) {
-      print("Error history: $e");
+      print("Error cargando historial: $e");
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -69,35 +108,45 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final myUserId = Provider.of<UserProvider>(context, listen: false).userId;
     if (myUserId == null) return;
 
-    // Limpiamos input para efecto inmediato
     _textController.clear();
 
     try {
-      // Enviamos al backend
+      print("Enviando mensaje a receiverId: ${widget.receiverId}, conId: $_currentConId");
+      
       final newMessage = await _chatService.sendMessage(
         senderId: myUserId,
-        receiverId: widget.receiverId, // Puede ser null si ya tenemos conId
-        conId: _currentConId,          // Puede ser null si es nuevo
+        receiverId: widget.receiverId, 
+        conId: _currentConId,
         content: text,
       );
 
       if (newMessage != null && mounted) {
         setState(() {
           _messages.add(newMessage);
-          // Si era un chat nuevo, la API probablemente creó la sala, 
-          // pero para simplificar aquí solo añadimos el mensaje localmente.
-          // En una app real, la respuesta debería incluir el nuevo conId.
         });
+
+        // Actualizar ID si era nuevo
+        if (_currentConId == null && widget.receiverId != null) {
+           // Pequeña espera para que la BD procese
+           await Future.delayed(const Duration(milliseconds: 500));
+           final newConId = await _chatService.checkConversation(myUserId, widget.receiverId!);
+           if (newConId != null) {
+             print("Chat creado exitosamente con ID: $newConId");
+             setState(() {
+               _currentConId = newConId;
+             });
+           }
+        }
       }
     } catch (e) {
       print("Error sending: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error al enviar mensaje")),
+        const SnackBar(content: Text("Error al enviar mensaje")),
       );
     }
   }
 
-  // ... (Helpers de color iguales que antes) ...
+  // --- Helpers de Color (Sin cambios) ---
   Color _backgroundColor(bool isDark) => isDark ? AppColors.backgroundDark : Colors.white;
   Color _appBarColor(bool isDark) => isDark ? AppColors.backgroundDark : Colors.white;
   Color _textColor(bool isDark) => isDark ? AppColors.darkText : Colors.black;
@@ -105,6 +154,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Color _bubbleMeColor(bool isDark) => isDark ? const Color.fromRGBO(59, 96, 125, 1) : const Color.fromARGB(255, 173, 202, 226);
   Color _bubbleOtherColor(bool isDark) => isDark ? AppColors.darkButtons : const Color.fromARGB(255, 0, 51, 102);
   Color _inputColor(bool isDark) => isDark ? AppColors.darkButtons : Colors.white;
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -174,13 +229,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         children: [
           Expanded(
             child: _isLoading
-                ? Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator())
                 : ListView.builder(
                     padding: const EdgeInsets.all(16.0),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final message = _messages[index];
-                      // Comparamos IDs reales
                       final bool isMe = message.senderId == myUserId;
                       
                       return Align(

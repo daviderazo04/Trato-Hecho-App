@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,7 +14,6 @@ import 'screens/auth/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load();
 
   final prefs = await SharedPreferences.getInstance();
   final bool seenWelcome = prefs.getBool('seenWelcome') ?? false;
@@ -33,7 +31,6 @@ void main() async {
             isLoggedIn: isLoggedIn,
           ),
         ),
-        // CAMBIO: Inicializamos y cargamos las preferencias del usuario
         ChangeNotifierProvider(
           create: (_) => UserProvider()..loadUserFromPrefs(),
         ),
@@ -43,7 +40,6 @@ void main() async {
   );
 }
 
-// ... (El resto de tu clase MyApp y MainNavigator se queda IGUAL) ...
 class MyApp extends StatelessWidget {
   final bool startWithWelcome;
 
@@ -77,7 +73,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// ... (MainNavigator se mantiene igual) ...
+// --- MAIN NAVIGATOR ---
 class MainNavigator extends StatefulWidget {
   const MainNavigator({super.key});
 
@@ -121,10 +117,11 @@ class _MainNavigatorState extends State<MainNavigator> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _widgetOptions,
-      ),
+      // --- CAMBIO CLAVE PARA REFRESCAR CHATS ---
+      // Quitamos IndexedStack y usamos .elementAt. 
+      // Esto fuerza a que la pantalla se reconstruya cada vez que entras.
+      body: _widgetOptions.elementAt(_selectedIndex),
+      // -----------------------------------------
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,

@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
@@ -50,13 +49,17 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     });
 
     try {
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/servicios'),
-      );
+      // Usamos la configuración centralizada
+      final url = Uri.parse(ApiConfig.servicios);
+      print("Fetching services from: $url"); // Debug log
+
+      final response = await http.get(url);
 
       if (response.statusCode == 200) {
+        // Decodificamos UTF8 para evitar problemas con tildes
         final List<dynamic> decoded =
             jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+        
         final services = decoded
             .map((item) => ServiceCardData.fromJson(item as Map<String, dynamic>))
             .toList();
@@ -64,24 +67,26 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         if (!mounted) return;
         setState(() {
           _services = services;
+          _filterServices(); // Aplicamos filtros iniciales
         });
-        _filterServices();
       } else {
         if (!mounted) return;
         setState(() {
-          _error = 'Error ${response.statusCode} al cargar servicios';
+          _error = 'Error ${response.statusCode}: No se pudieron cargar los servicios';
         });
       }
     } catch (e) {
+      print("Error fetching services: $e");
       if (!mounted) return;
       setState(() {
-        _error = 'No se pudo cargar servicios: $e';
+        _error = 'Error de conexión. Verifica que el servidor esté corriendo.';
       });
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -91,8 +96,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       _filteredServices = _services.where((service) {
         final serviceTitle = service.title.toLowerCase();
         final matchesSearch = serviceTitle.contains(query);
+        // Filtro por categoría (si hay una seleccionada)
+        // Comparamos en minúsculas y buscamos coincidencia parcial para ser más flexibles
         final matchesCategory = _selectedCategory == null ||
-            service.category.toLowerCase() == _selectedCategory!.toLowerCase();
+            service.category.toLowerCase().contains(_selectedCategory!.toLowerCase());
         return matchesSearch && matchesCategory;
       }).toList();
     });
@@ -101,8 +108,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   void _selectCategory(String category) {
     setState(() {
       if (_selectedCategory == category) {
-        // Si la categoría ya está seleccionada, la deseleccionamos
-        _selectedCategory = null;
+        _selectedCategory = null; // Deseleccionar
       } else {
         _selectedCategory = category;
       }
@@ -125,12 +131,14 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+              const SizedBox(height: 16),
               Text(
                 _error!,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyLarge,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _fetchServices,
                 child: const Text('Reintentar'),
@@ -157,11 +165,17 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             if (_filteredServices.isEmpty)
               Center(
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 20),
-                  child: Text(
-                    'No hay servicios disponibles',
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(color: Colors.grey[600]),
+                  padding: const EdgeInsets.only(top: 40),
+                  child: Column(
+                    children: [
+                      Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No se encontraron servicios',
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: Colors.grey[600]),
+                      ),
+                    ],
                   ),
                 ),
               )
@@ -182,7 +196,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                     padding: const EdgeInsets.only(bottom: 20),
                     child: _ServiceCard(
                       data: service,
-                      accentColor: AppColors.amber,
+                      accentColor: AppColors.primary,
                       textTheme: theme.textTheme,
                     ),
                   ),
@@ -200,6 +214,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     );
   }
 }
+
+// --- COMPONENTS (Headers, Buttons, Cards) ---
 
 class _CategoryHeader extends StatelessWidget {
   const _CategoryHeader({
@@ -437,6 +453,7 @@ class _ServiceCardState extends State<_ServiceCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // --- MEDIA AREA ---
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             child: Stack(
@@ -460,6 +477,7 @@ class _ServiceCardState extends State<_ServiceCard> {
                       }
                       final url = widget.data.imageUrls[index];
                       final isVideo = _isVideo(url);
+
                       if (!isVideo) {
                         return Image.network(
                           url,
@@ -474,25 +492,21 @@ class _ServiceCardState extends State<_ServiceCard> {
                           ),
                         );
                       }
+
                       return FutureBuilder(
                         future: _ensureVideoInitialized(index, url),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState == ConnectionState.waiting) {
                             return Container(
                               color: Colors.black,
-                              child: const Center(
-                                child: CircularProgressIndicator(),
-                              ),
+                              child: const Center(child: CircularProgressIndicator()),
                             );
                           }
                           if (snapshot.hasError) {
                             return Container(
                               color: Colors.black,
                               child: const Center(
-                                child: Icon(
-                                  Icons.error_outline,
-                                  color: Colors.white,
-                                ),
+                                child: Icon(Icons.error_outline, color: Colors.white),
                               ),
                             );
                           }
@@ -501,8 +515,9 @@ class _ServiceCardState extends State<_ServiceCard> {
                             alignment: Alignment.center,
                             children: [
                               AspectRatio(
-                                aspectRatio:
-                                    controller.value.isInitialized ? controller.value.aspectRatio : (4 / 3),
+                                aspectRatio: controller.value.isInitialized
+                                    ? controller.value.aspectRatio
+                                    : (4 / 3),
                                 child: VideoPlayer(controller),
                               ),
                               GestureDetector(
@@ -510,12 +525,14 @@ class _ServiceCardState extends State<_ServiceCard> {
                                 child: Container(
                                   width: 60,
                                   height: 60,
-                                  decoration: BoxDecoration(
+                                  decoration: const BoxDecoration(
                                     color: Colors.black45,
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
-                                    controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                                    controller.value.isPlaying
+                                        ? Icons.pause
+                                        : Icons.play_arrow,
                                     color: Colors.white,
                                     size: 36,
                                   ),
@@ -528,6 +545,8 @@ class _ServiceCardState extends State<_ServiceCard> {
                     },
                   ),
                 ),
+                
+                // Arrows
                 Positioned.fill(
                   child: Align(
                     alignment: Alignment.centerLeft,
@@ -558,6 +577,8 @@ class _ServiceCardState extends State<_ServiceCard> {
                     ),
                   ),
                 ),
+
+                // Dots Indicator
                 Positioned(
                   bottom: 12,
                   left: 0,
@@ -586,6 +607,8 @@ class _ServiceCardState extends State<_ServiceCard> {
               ],
             ),
           ),
+
+          // --- CARD INFO ---
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
@@ -599,12 +622,14 @@ class _ServiceCardState extends State<_ServiceCard> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
             child: Row(
               children: [
-                Text(
-                  widget.data.providerName,
-                  style: widget.textTheme.bodyMedium
-                      ?.copyWith(color: Colors.grey[700]),
+                Expanded(
+                  child: Text(
+                    widget.data.providerName,
+                    style: widget.textTheme.bodyMedium
+                        ?.copyWith(color: Colors.grey[700]),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const Spacer(),
                 Text(
                   widget.data.rating.toStringAsFixed(1),
                   style: widget.textTheme.bodyMedium?.copyWith(
@@ -712,8 +737,7 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-// --- CAMBIO 6: Clases de datos ahora PÚBLICAS (sin '_') ---
-// (Movidas al final del archivo para que 'home_screen.dart' las importe)
+// --- MODELOS DE DATOS (Sincronizados con API) ---
 
 class CategoryItemData {
   const CategoryItemData({
@@ -728,31 +752,39 @@ class CategoryItemData {
 class ServiceCardData {
   const ServiceCardData({
     this.id,
+    required this.providerId,
     required this.imageUrls,
     required this.title,
     required this.providerName,
     required this.rating,
-    // --- CAMBIO 7: Nuevos campos añadidos ---
     required this.category,
     required this.price,
     required this.description,
   });
 
   final int? id;
+  final int providerId;
   final List<String> imageUrls;
   final String title;
-  final String providerName; // Campo renombrado
+  final String providerName;
   final double rating;
   final String category;
   final double price;
   final String description;
 
   factory ServiceCardData.fromJson(Map<String, dynamic> json) {
+    // Manejo seguro de listas que pueden venir nulas o vacías
     final List<String> images =
         (json['multimediaUrls'] as List<dynamic>?)
                 ?.whereType<String>()
                 .toList() ??
             [];
+    
+    // Imagen por defecto si la lista está vacía
+    if (images.isEmpty) {
+      images.add('https://via.placeholder.com/400x300?text=Sin+Imagen');
+    }
+
     final List<String> categories =
         (json['categorias'] as List<dynamic>?)
                 ?.whereType<String>()
@@ -761,27 +793,23 @@ class ServiceCardData {
 
     return ServiceCardData(
       id: json['id'] as int?,
+      // Asegúrate de que tu API envía 'usuarioId'
+      providerId: (json['usuarioId'] as num?)?.toInt() ?? 0,
       imageUrls: images,
       title: json['nombre'] as String? ?? 'Servicio',
       providerName: json['usuarioNombre'] as String? ?? 'Proveedor',
-      rating: (json['promedioCalificacion'] as num?)?.toDouble() ?? 0,
-      category: _mapCategory(categories.isNotEmpty ? categories.first : 'Servicios'),
-      price: (json['precio'] as num?)?.toDouble() ?? 0,
+      rating: (json['promedioCalificacion'] as num?)?.toDouble() ?? 0.0,
+      category: _mapCategory(categories.isNotEmpty ? categories.first : 'Varios'),
+      price: (json['precio'] as num?)?.toDouble() ?? 0.0,
       description: json['descripcion'] as String? ?? '',
     );
   }
 
   static String _mapCategory(String raw) {
     final lower = raw.toLowerCase();
-    if (lower.contains('música') || lower.contains('musica')) {
-      return 'Música';
-    }
-    if (lower.contains('fiesta')) {
-      return 'Fiestas';
-    }
-    if (lower.contains('baile') || lower.contains('danza')) {
-      return 'Baile';
-    }
+    if (lower.contains('música') || lower.contains('musica')) return 'Música';
+    if (lower.contains('fiesta')) return 'Fiestas';
+    if (lower.contains('baile') || lower.contains('danza')) return 'Baile';
     return raw;
   }
 }

@@ -41,14 +41,33 @@ class ChatService {
     }
   }
 
+  Future<int?> checkConversation(int senderId, int receiverId) async {
+    final url = Uri.parse('${ApiConfig.chat}/check/$receiverId?senderId=$senderId');
+    
+    try {
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        // Si devuelve un número (ej: 15), es el ID. Si devuelve null/vacío, no existe.
+        if (response.body.isEmpty || response.body == 'null') return null;
+        return int.tryParse(response.body);
+      }
+      return null;
+    } catch (e) {
+      print("Error checking conversation: $e");
+      return null;
+    }
+  }
+
   // 3. Enviar Mensaje
   Future<ChatMessage?> sendMessage({
     required int senderId,
-    int? receiverId, // Puede ser nulo si ya tenemos conId
-    int? conId,      // Puede ser nulo si es chat nuevo
+    int? receiverId, 
+    int? conId,      
     required String content,
   }) async {
-    final url = Uri.parse('${ApiConfig.chat}/send');
+     // ... (código existente)
+     final url = Uri.parse('${ApiConfig.chat}/send');
     
     try {
       final response = await http.post(
