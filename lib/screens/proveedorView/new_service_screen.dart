@@ -1,5 +1,46 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import '../../config/appColors.dart';
+
+// ----------------------------------------------------------------------
+// CONFIGURACIÓN DE LA API (SIMULANDO OBTENCIÓN DE .ENV)
+// ----------------------------------------------------------------------
+
+// Usamos una constante estática para simular la configuración centralizada.
+// Tu valor de .env es: API_BASE_URL=http://localhost:8080/api
+// Adaptamos esto para que la clase de Dart pueda construir las URLs completas.
+class ApiConfig {
+  // Asegúrate de que esta URL sea accesible (ej. http://10.0.2.2:8080 para Android emulator)
+  static const String BASE_API_URL = "http://10.0.2.2:8080/api";
+
+  static const String CATEGORIES = "$BASE_API_URL/categorias";
+  static const String SERVICES = "$BASE_API_URL/servicios";
+}
+
+// ----------------------------------------------------------------------
+// MODELO DE DATOS
+// ----------------------------------------------------------------------
+
+class Category {
+  final int id;
+  final String nombre;
+  Category({required this.id, required this.nombre});
+
+  factory Category.fromJson(Map<String, dynamic> json) {
+    return Category(
+      id: json['id'] as int,
+      nombre:
+          json.containsKey('nombre') ? json['nombre'] as String : 'Sin Nombre',
+    );
+  }
+}
+
+// ----------------------------------------------------------------------
+// WIDGET PRINCIPAL
+// ----------------------------------------------------------------------
 
 class NewServiceScreen extends StatefulWidget {
   const NewServiceScreen({super.key});
@@ -9,20 +50,32 @@ class NewServiceScreen extends StatefulWidget {
 }
 
 class _NewServiceScreenState extends State<NewServiceScreen> {
+  // --- COLORES ---
   static const Color _selectCategoryButtonColor = AppColors.primary;
+  static const Color _selectedChipBgColor = Color(0xFF10B981);
 
+  // --- CONTROLADORES ---
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
-  final List<String> _allCategories = [
-    'Baile',
-    'Música',
-    'Fiestas',
-    'Eventos',
-    'Clases'
-  ];
-  final List<String> _selectedCategories = ['Baile', 'Música', 'Fiestas'];
+  // --- ESTADO DE LÓGICA DE NEGOCIO ---
+  final List<Category> _availableCategories = [];
+  final List<Category> _selectedCategoriesObjects = [];
+  final List<File> _selectedFiles = [];
+
+  bool _isLoadingCategories = true;
+  bool _isPublishing = false;
+
+  // SIMULACIÓN DE USER ID (DEBE VENIR DE UN PROVIDER REAL)
+  final int _currentUserId = 1;
+
+  // --- INITIALIZATION ---
+  @override
+  void initState() {
+    super.initState();
+    _fetchCategories();
+  }
 
   @override
   void dispose() {
@@ -32,34 +85,166 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
     super.dispose();
   }
 
-  void _addCategory(String category) {
-    if (!_selectedCategories.contains(category)) {
+  // ============================================================
+  // LÓGICA DE API Y ESTADO
+  // ============================================================
+
+  // OBTENER CATEGORÍAS
+  Future<void> _fetchCategories() async {
+    try {
+      final response = await http.get(Uri.parse(ApiConfig.CATEGORIES));
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonList =
+            json.decode(utf8.decode(response.bodyBytes));
+        setState(() {
+          _availableCategories.clear();
+          _availableCategories
+              .addAll(jsonList.map((json) => Category.fromJson(json)).toList());
+          _isLoadingCategories = false;
+          // Inicializa las categorías seleccionadas con un ejemplo si la lista está vacía
+          if (_selectedCategoriesObjects.isEmpty &&
+              _availableCategories.isNotEmpty) {
+            _selectedCategoriesObjects.addAll(_availableCategories.take(3));
+          }
+        });
+      } else {
+        throw Exception("Failed to load categories: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Error fetching categories: $e");
+      setState(() => _isLoadingCategories = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                '❌ Error al cargar categorías: ${e.toString().split(':').last}'),
+            backgroundColor: AppColors.error),
+      );
+    }
+  }
+
+  // PUBLICAR SERVICIO (MULTIPART REQUEST)
+  Future<void> _createService() async {
+    if (_isPublishing) return;
+
+    // Validación básica
+    final price = double.tryParse(_priceController.text) ?? 0.0;
+    if (_titleController.text.isEmpty ||
+        price <= 0 ||
+        _selectedCategoriesObjects.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('⚠️ Complete título, precio y seleccione categorías.'),
+            backgroundColor: AppColors.warning),
+      );
+      return;
+    }
+
+    setState(() => _isPublishing = true);
+
+    try {
+      // 1. Crear el DTO JSON
+      final serviceDto = {
+        "userId": _currentUserId,
+        "nombre": _titleController.text,
+        "descripcion": _descriptionController.text,
+        "precio": price,
+        "categoriasIds": _selectedCategoriesObjects.map((c) => c.id).toList(),
+      };
+
+      // 2. Crear el MultipartRequest
+      var request =
+          http.MultipartRequest('POST', Uri.parse(ApiConfig.SERVICES));
+
+      // 3. Agregar el DTO JSON como campo 'servicio'
+      request.fields['servicio'] = jsonEncode(serviceDto);
+
+      // 4. Agregar archivos multimedia (Máx 3)
+      for (var file in _selectedFiles.take(3)) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'files', // Clave requerida por la API
+            file.path,
+          ),
+        );
+      }
+
+      // 5. Enviar la petición
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('✅ Servicio publicado con éxito'),
+              backgroundColor: AppColors.success),
+        );
+        // Opcional: Navegar de regreso: Navigator.pop(context);
+      } else {
+        final errorBody = json.decode(utf8.decode(response.bodyBytes));
+        throw Exception(
+            "Error ${response.statusCode}: ${errorBody['message'] ?? response.reasonPhrase}");
+      }
+    } catch (e) {
+      print("Error al publicar servicio: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text('❌ Error al publicar: ${e.toString().split(':').last}'),
+            backgroundColor: AppColors.error),
+      );
+    } finally {
+      setState(() => _isPublishing = false);
+    }
+  }
+
+  // SELECCIÓN DE ARCHIVOS MULTIMEDIA
+  Future<void> _pickFiles() async {
+    if (_selectedFiles.length >= 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('⚠️ Límite alcanzado: Máximo 3 archivos.'),
+            backgroundColor: AppColors.warning),
+      );
+      return;
+    }
+
+    final picker = ImagePicker();
+    final pickedFiles = await picker.pickMultiImage(
+        imageQuality: 70, maxHeight: 1024, maxWidth: 1024);
+
+    if (pickedFiles.isNotEmpty) {
       setState(() {
-        _selectedCategories.add(category);
+        _selectedFiles.addAll(pickedFiles.map((xfile) => File(xfile.path)));
+        // Limitar a 3 archivos después de la selección
+        if (_selectedFiles.length > 3) {
+          _selectedFiles.removeRange(3, _selectedFiles.length);
+        }
       });
     }
   }
 
-  void _removeCategory(String category) {
-    setState(() {
-      _selectedCategories.remove(category);
-    });
+  // GESTIÓN DE CATEGORÍAS EN ESTADO
+  void _addCategory(String categoryName) {
+    try {
+      final cat =
+          _availableCategories.firstWhere((c) => c.nombre == categoryName);
+      if (!_selectedCategoriesObjects.any((c) => c.id == cat.id)) {
+        setState(() => _selectedCategoriesObjects.add(cat));
+      }
+    } catch (e) {
+      print("Error: Categoría no encontrada.");
+    }
   }
 
-  void _createService() {
-    final selectedCategories = _selectedCategories;
-
-    print('--- Nuevo Servicio Creado ---');
-    print('Título: ${_titleController.text}');
-    print('Categorías: $selectedCategories');
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Servicio publicado con éxito'),
-        backgroundColor: AppColors.primary,
-      ),
-    );
+  void _removeCategory(Category category) {
+    setState(() =>
+        _selectedCategoriesObjects.removeWhere((c) => c.id == category.id));
   }
+
+  // ============================================================
+  // CONSTRUCCIÓN DE LA VISTA
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -67,127 +252,123 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
+      body: Stack(
         children: [
-          // -------------------------
-          // HEADER CENTRADO PERFECTO
-          // -------------------------
-          Padding(
-            padding: EdgeInsets.only(
-              top: safeTop + 10,
-              left: 10,
-              right: 10,
-              bottom: 10,
-            ),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    color: Colors.black87,
-                    size: 26,
-                  ),
-                ),
-
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      "Nuevo Servicio",
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+          // -------------------
+          // CONTENIDO PRINCIPAL (Centrado)
+          // -------------------
+          Column(
+            children: [
+              SizedBox(height: safeTop + 50),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Título principal (Centrado)
+                      Text(
+                        "Nuevo Servicio",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
                       ),
-                    ),
+
+                      const SizedBox(height: 25),
+
+                      // Información básica
+                      _buildCenteredSectionTitle(
+                        "Información básica",
+                        "Describe tu servicio de forma clara para atraer más clientes",
+                      ),
+
+                      const SizedBox(height: 15),
+
+                      _buildInput(
+                        controller: _titleController,
+                        hint: "Título del servicio",
+                        icon: Icons.person_outline,
+                      ),
+                      const SizedBox(height: 15),
+
+                      _buildInput(
+                        controller: _priceController,
+                        hint: "Precio del servicio",
+                        icon: Icons.attach_money,
+                        inputType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 15),
+
+                      _buildDescriptionInput(
+                        controller: _descriptionController,
+                        hint: "Descripción del servicio",
+                        maxLength: 500,
+                        icon: Icons.person_outline,
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      // Clasificación
+                      _buildCenteredSectionTitle(
+                        "Clasifica tu servicio",
+                        "Esto ayudará a tus clientes a ubicarte rápidamente",
+                      ),
+
+                      const SizedBox(height: 15),
+
+                      _isLoadingCategories
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                  color: AppColors.primary))
+                          : _buildCategoryChips(),
+
+                      const SizedBox(height: 15),
+
+                      _buildCategoryDropdownButton(),
+
+                      const SizedBox(height: 30),
+
+                      // Media
+                      _buildCenteredSectionTitle(
+                        "Muestra tu servicio",
+                        "Los clientes confían más cuando pueden ver lo que ofreces",
+                      ),
+
+                      const SizedBox(height: 15),
+
+                      _buildMediaUploadBox(),
+
+                      const SizedBox(height: 10),
+                      _buildSelectedFilesPreview(),
+
+                      const SizedBox(height: 30),
+
+                      // Botón Crear Servicio
+                      _buildCreateServiceButton(),
+
+                      const SizedBox(height: 20),
+                    ],
                   ),
                 ),
-
-                // placeholder para balancear
-                const SizedBox(width: 26),
-              ],
-            ),
+              ),
+            ],
           ),
 
-          // -------------------------
-          // CONTENIDO PRINCIPAL
-          // -------------------------
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 20),
-
-                  // -------------------------
-                  // INFORMACIÓN BÁSICA
-                  // -------------------------
-                  _buildCenteredSectionTitle(
-                    "Información básica",
-                    "Describe tu servicio de forma clara para atraer más clientes",
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  _buildInput(
-                    controller: _titleController,
-                    hint: "Título del servicio",
-                    icon: Icons.person_outline,
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  _buildInput(
-                    controller: _priceController,
-                    hint: "Precio del servicio",
-                    icon: Icons.attach_money,
-                    inputType: TextInputType.number,
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  _buildDescriptionInput(
-                    controller: _descriptionController,
-                    hint: "Descripción del servicio",
-                    maxLength: 500,
-                    icon: Icons.description_outlined,
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  // -------------------------
-                  // CLASIFICAR SERVICIO
-                  // -------------------------
-                  _buildCenteredSectionTitle(
-                    "Clasifica tu servicio",
-                    "Esto ayudará a tus clientes a ubicarte rápidamente",
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  _buildCategoryChips(),
-                  const SizedBox(height: 15),
-                  _buildCategoryDropdownButton(),
-
-                  const SizedBox(height: 30),
-
-                  // -------------------------
-                  // MEDIA / ARCHIVOS
-                  // -------------------------
-                  _buildCenteredSectionTitle(
-                    "Muestra tu servicio",
-                    "Los clientes confían más cuando pueden ver lo que ofreces",
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  _buildMediaUploadBox(),
-
-                  const SizedBox(height: 30),
-                  _buildCreateServiceButton(),
-                  const SizedBox(height: 20),
-                ],
+          // -------------------
+          // FLECHA DE REGRESO (Posicionada en el Stack)
+          // -------------------
+          Positioned(
+            top: safeTop + 10,
+            left: 24,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: const Icon(
+                Icons.arrow_back,
+                color: Colors.black87,
+                size: 28,
               ),
             ),
           ),
@@ -197,38 +378,30 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
   }
 
   // ============================================================
-  // TÍTULOS CENTRADOS
+  // WIDGETS AUXILIARES
   // ============================================================
 
   Widget _buildCenteredSectionTitle(String title, String subtitle) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
+    return Container(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+                fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          subtitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.black.withOpacity(0.7),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style:
+                TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.7)),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
-
-  // ============================================================
-  // INPUTS
-  // ============================================================
 
   Widget _buildInput({
     required TextEditingController controller,
@@ -270,7 +443,7 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
         maxLines: 5,
         decoration: InputDecoration(
           prefixIcon: Padding(
-            padding: const EdgeInsets.only(bottom: 50),
+            padding: const EdgeInsets.only(bottom: 50.0),
             child: Icon(icon, color: Colors.black),
           ),
           filled: true,
@@ -278,7 +451,7 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
           hintText: hint,
           alignLabelWithHint: true,
           counterText: '${controller.text.length}/$maxLength caracteres',
-          counterStyle: const TextStyle(fontSize: 12, color: Colors.grey),
+          counterStyle: const TextStyle(color: Colors.grey, fontSize: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: const BorderSide(color: Colors.black54),
@@ -288,26 +461,20 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
     );
   }
 
-  // ============================================================
-  // CATEGORÍAS (CHIPS)
-  // ============================================================
-
   Widget _buildCategoryChips() {
-    const Color selectedChipColor = Color(0xFF10B981);
-
-    return Align(
-      alignment: Alignment.center,
+    return Container(
+      width: double.infinity,
       child: Wrap(
         spacing: 8,
         runSpacing: 4,
-        alignment: WrapAlignment.center,
-        children: _selectedCategories.map((category) {
+        alignment: WrapAlignment.start,
+        children: _selectedCategoriesObjects.map((category) {
           return ChoiceChip(
-            label: Text(category),
+            label: Text(category.nombre),
             selected: true,
             onSelected: (_) => _removeCategory(category),
-            selectedColor: selectedChipColor,
-            backgroundColor: selectedChipColor,
+            selectedColor: _selectedChipBgColor,
+            backgroundColor: _selectedChipBgColor,
             labelStyle: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -323,11 +490,10 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
     );
   }
 
-  // ============================================================
-  // SELECTOR DROPDOWN
-  // ============================================================
-
   Widget _buildCategoryDropdownButton() {
+    final selectedNames =
+        _selectedCategoriesObjects.map((c) => c.nombre).toSet();
+
     return Container(
       width: double.infinity,
       height: 40,
@@ -352,15 +518,15 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
             padding: EdgeInsets.only(right: 10),
             child: Icon(Icons.keyboard_arrow_down, color: Colors.white),
           ),
-          items: _allCategories
-              .where((c) => !_selectedCategories.contains(c))
+          items: _availableCategories
+              .where((c) => !selectedNames.contains(c.nombre))
               .map((category) {
-            return DropdownMenuItem(
-              value: category,
+            return DropdownMenuItem<String>(
+              value: category.nombre,
               child: Padding(
                 padding: const EdgeInsets.only(left: 10),
-                child:
-                    Text(category, style: const TextStyle(color: Colors.white)),
+                child: Text(category.nombre,
+                    style: const TextStyle(color: Colors.white)),
               ),
             );
           }).toList(),
@@ -372,13 +538,9 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
     );
   }
 
-  // ============================================================
-  // MEDIA UPLOAD
-  // ============================================================
-
   Widget _buildMediaUploadBox() {
     return GestureDetector(
-      onTap: () {},
+      onTap: _pickFiles,
       child: Container(
         height: 180,
         width: double.infinity,
@@ -400,7 +562,7 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
             ),
             const SizedBox(height: 5),
             Text(
-              'Añade fotos o videos al servicio',
+              'Añade fotos o videos al servicio (${_selectedFiles.length}/3)',
               style:
                   TextStyle(color: Colors.black.withOpacity(0.5), fontSize: 12),
             ),
@@ -410,9 +572,50 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
     );
   }
 
-  // ============================================================
-  // BOTÓN CREAR SERVICIO
-  // ============================================================
+  Widget _buildSelectedFilesPreview() {
+    if (_selectedFiles.isEmpty) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 100,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _selectedFiles.length,
+        itemBuilder: (context, index) {
+          final file = _selectedFiles[index];
+          return Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8.0),
+                  child: Image.file(
+                    file,
+                    width: 90,
+                    height: 90,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selectedFiles.removeAt(index)),
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close,
+                          size: 18, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   Widget _buildCreateServiceButton() {
     return Container(
@@ -426,7 +629,7 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
         ),
       ),
       child: ElevatedButton(
-        onPressed: _createService,
+        onPressed: _isPublishing ? null : _createService,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
@@ -435,10 +638,19 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
           ),
           elevation: 3,
         ),
-        child: const Text(
-          "Crear servicio",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        child: _isPublishing
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 3,
+                ),
+              )
+            : const Text(
+                "Crear servicio",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
       ),
     );
   }
