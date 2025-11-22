@@ -7,22 +7,22 @@ import '../../services/chat_service.dart';
 import '../../models/chat_models.dart';
 
 class ChatDetailScreen extends StatefulWidget {
-  final int? conId;       
+  final int? conId;
   final int? receiverId;
   // --- 1. AGREGAMOS EL CAMPO AQUÍ ---
-  final int? serviceId;   
+  final int? serviceId;
   // ----------------------------------
   final String chatName;
   final String chatSubtitle;
   final String rating;
-  final String? serviceImage; 
+  final String? serviceImage;
 
   const ChatDetailScreen({
     super.key,
     this.conId,
     this.receiverId,
     // --- 2. Y LO AGREGAMOS AL CONSTRUCTOR ---
-    this.serviceId,       
+    this.serviceId,
     // ----------------------------------------
     required this.chatName,
     required this.chatSubtitle,
@@ -37,10 +37,10 @@ class ChatDetailScreen extends StatefulWidget {
 class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final ChatService _chatService = ChatService();
   final _textController = TextEditingController();
-  
+
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
-  int? _currentConId; 
+  int? _currentConId;
 
   @override
   void initState() {
@@ -61,10 +61,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       try {
         // Pasamos el serviceId a la búsqueda
         final existingId = await _chatService.checkConversation(
-            myUserId, widget.receiverId!, serviceId: widget.serviceId);
-            
+            myUserId, widget.receiverId!,
+            serviceId: widget.serviceId);
+
         if (existingId != null) {
-          _currentConId = existingId; 
+          _currentConId = existingId;
         }
       } catch (e) {
         print("Error buscando conversación: $e");
@@ -102,9 +103,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     try {
       final newMessage = await _chatService.sendMessage(
         senderId: myUserId,
-        receiverId: widget.receiverId, 
+        receiverId: widget.receiverId,
         conId: _currentConId,
-        serviceId: widget.serviceId, // --- PASAMOS EL ID DEL SERVICIO AL CREAR ---
+        serviceId:
+            widget.serviceId, // --- PASAMOS EL ID DEL SERVICIO AL CREAR ---
         content: text,
       );
 
@@ -114,14 +116,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         });
 
         if (_currentConId == null && widget.receiverId != null) {
-           await Future.delayed(const Duration(milliseconds: 500));
-           final newConId = await _chatService.checkConversation(
-               myUserId, widget.receiverId!, serviceId: widget.serviceId);
-           if (newConId != null) {
-             setState(() {
-               _currentConId = newConId;
-             });
-           }
+          await Future.delayed(const Duration(milliseconds: 500));
+          final newConId = await _chatService.checkConversation(
+              myUserId, widget.receiverId!,
+              serviceId: widget.serviceId);
+          if (newConId != null) {
+            setState(() {
+              _currentConId = newConId;
+            });
+          }
         }
       }
     } catch (e) {
@@ -133,13 +136,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   // Helpers de color
-  Color _backgroundColor(bool isDark) => isDark ? AppColors.backgroundDark : Colors.white;
-  Color _appBarColor(bool isDark) => isDark ? AppColors.backgroundDark : Colors.white;
+  Color _backgroundColor(bool isDark) =>
+      isDark ? AppColors.backgroundDark : Colors.white;
+  Color _appBarColor(bool isDark) =>
+      isDark ? AppColors.backgroundDark : Colors.white;
   Color _textColor(bool isDark) => isDark ? AppColors.darkText : Colors.black;
-  Color _subTextColor(bool isDark) => isDark ? Colors.grey[400]! : Colors.black54;
-  Color _bubbleMeColor(bool isDark) => isDark ? const Color.fromRGBO(59, 96, 125, 1) : const Color.fromARGB(255, 173, 202, 226);
-  Color _bubbleOtherColor(bool isDark) => isDark ? AppColors.darkButtons : const Color.fromARGB(255, 0, 51, 102);
-  Color _inputColor(bool isDark) => isDark ? AppColors.darkButtons : Colors.white;
+  Color _subTextColor(bool isDark) =>
+      isDark ? Colors.grey[400]! : Colors.black54;
+  Color _bubbleMeColor(bool isDark) => isDark
+      ? const Color.fromRGBO(59, 96, 125, 1)
+      : const Color.fromARGB(255, 173, 202, 226);
+  Color _bubbleOtherColor(bool isDark) =>
+      isDark ? AppColors.darkButtons : const Color.fromARGB(255, 0, 51, 102);
+  Color _inputColor(bool isDark) =>
+      isDark ? AppColors.darkButtons : Colors.white;
 
   @override
   void dispose() {
@@ -164,7 +174,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           icon: Icon(Icons.arrow_back, color: _textColor(isDarkMode)),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Row( 
+        title: Row(
           children: [
             if (widget.serviceImage != null)
               Padding(
@@ -174,26 +184,33 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   radius: 20,
                 ),
               ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.chatName,
-                  style: TextStyle(
-                    color: _textColor(isDarkMode),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+            // Allow the title area to take available space and wrap text
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Auto-scrolling horizontal title to avoid overflow
+                  _AutoScrollText(
+                    text: widget.chatName,
+                    style: TextStyle(
+                      color: _textColor(isDarkMode),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                    pauseDuration: const Duration(milliseconds: 900),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  widget.chatSubtitle,
-                  style: TextStyle(
-                    color: _subTextColor(isDarkMode),
-                    fontSize: 14,
+                  Text(
+                    widget.chatSubtitle,
+                    style: TextStyle(
+                      color: _subTextColor(isDarkMode),
+                      fontSize: 14,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -235,14 +252,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     itemBuilder: (context, index) {
                       final message = _messages[index];
                       final bool isMe = message.senderId == myUserId;
-                      
+
                       return Align(
-                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                        alignment:
+                            isMe ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(
                           margin: const EdgeInsets.symmetric(vertical: 6.0),
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0, vertical: 10.0),
                           decoration: BoxDecoration(
-                            color: isMe ? _bubbleMeColor(isDarkMode) : _bubbleOtherColor(isDarkMode),
+                            color: isMe
+                                ? _bubbleMeColor(isDarkMode)
+                                : _bubbleOtherColor(isDarkMode),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Text(
@@ -288,17 +309,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30.0),
                     borderSide: BorderSide(
-                        color: isDarkMode ? AppColors.darkBorders : Colors.grey[400]!),
+                        color: isDarkMode
+                            ? AppColors.darkBorders
+                            : Colors.grey[400]!),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30.0),
                     borderSide: const BorderSide(
                         color: Color.fromARGB(255, 0, 51, 102), width: 2.0),
                   ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20.0, vertical: 10.0),
                   filled: true,
-                  fillColor: isDarkMode ? AppColors.backgroundDark : Colors.white,
+                  fillColor:
+                      isDarkMode ? AppColors.backgroundDark : Colors.white,
                 ),
               ),
             ),
@@ -310,6 +334,123 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               onPressed: _handleSendPressed,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// Auto-scrolling horizontal text widget (marquee-like) used for long titles
+class _AutoScrollText extends StatefulWidget {
+  const _AutoScrollText({
+    required this.text,
+    this.style,
+    this.pauseDuration = const Duration(milliseconds: 800),
+  });
+
+  final String text;
+  final TextStyle? style;
+  final Duration pauseDuration;
+
+  @override
+  State<_AutoScrollText> createState() => _AutoScrollTextState();
+}
+
+class _AutoScrollTextState extends State<_AutoScrollText> {
+  final ScrollController _scrollController = ScrollController();
+  bool _shouldScroll = false;
+  double _maxScroll = 0.0;
+  bool _running = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAndStart());
+  }
+
+  @override
+  void didUpdateWidget(covariant _AutoScrollText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) {
+      // restart check when text changes
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkAndStart());
+    }
+  }
+
+  Future<void> _checkAndStart() async {
+    if (!mounted) return;
+    // allow layout to settle
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!_scrollController.hasClients) return;
+    final max = _scrollController.position.maxScrollExtent;
+    setState(() {
+      _maxScroll = max;
+      _shouldScroll = max > 0.5;
+    });
+    if (_shouldScroll && !_running) {
+      _running = true;
+      _startLoop();
+    }
+  }
+
+  Future<void> _startLoop() async {
+    while (mounted && _shouldScroll) {
+      try {
+        // scroll to end
+        final distance = _maxScroll;
+        const double velocity = 40.0; // pixels per second
+        final durationMillis =
+            (distance / velocity * 1000).clamp(300, 20000).toInt();
+        await _scrollController.animateTo(
+          _maxScroll,
+          duration: Duration(milliseconds: durationMillis),
+          curve: Curves.linear,
+        );
+
+        await Future.delayed(widget.pauseDuration);
+
+        // scroll back to start
+        await _scrollController.animateTo(
+          0.0,
+          duration: Duration(milliseconds: durationMillis),
+          curve: Curves.linear,
+        );
+
+        await Future.delayed(widget.pauseDuration);
+      } catch (_) {
+        // animation cancelled or controller disposed
+        break;
+      }
+    }
+    _running = false;
+  }
+
+  @override
+  void dispose() {
+    _running = false;
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: (widget.style?.fontSize ??
+              DefaultTextStyle.of(context).style.fontSize ??
+              16) *
+          1.3,
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            widget.text,
+            style: widget.style,
+            maxLines: 1,
+            overflow: TextOverflow.visible,
+          ),
         ),
       ),
     );

@@ -698,6 +698,29 @@ class _ServiceCardState extends State<_ServiceCard> {
         lower.contains('video');
   }
 
+  Widget _buildImage(String url) {
+    final fallback = ServiceCardData.fallbackImage;
+    final isLocal = url.startsWith('assets/');
+    if (isLocal) {
+      return Image.asset(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Image.asset(
+          fallback,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Image.asset(
+        fallback,
+        fit: BoxFit.cover,
+      ),
+    );
+  }
+
   Future<void> _ensureVideoInitialized(int index, String url) {
     if (_initializeVideoFutures.containsKey(index)) {
       return _initializeVideoFutures[index]!;
@@ -774,19 +797,8 @@ class _ServiceCardState extends State<_ServiceCard> {
                       final url = widget.data.imageUrls[index];
                       final isVideo = _isVideo(url);
 
-                      if (!isVideo) {
-                        return Image.network(
-                          url,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: Colors.grey.shade200,
-                            child: const Icon(
-                              Icons.broken_image,
-                              color: Colors.black38,
-                              size: 48,
-                            ),
-                          ),
-                        );
+                  if (!isVideo) {
+                        return _buildImage(url);
                       }
 
                       return FutureBuilder(
@@ -1108,6 +1120,8 @@ class ServiceCardData {
   String get ratingLabel =>
       hasRatings ? rating.toStringAsFixed(1) : 'Sin calificaciones';
 
+  static const String fallbackImage = 'assets/images/cakeLogin.png';
+
   factory ServiceCardData.fromJson(Map<String, dynamic> json) {
     // Manejo seguro de listas que pueden venir nulas o vacías
     final List<String> images =
@@ -1118,7 +1132,7 @@ class ServiceCardData {
     
     // Imagen por defecto si la lista está vacía
     if (images.isEmpty) {
-      images.add('https://via.placeholder.com/400x300?text=Sin+Imagen');
+      images.add(fallbackImage);
     }
 
     final List<String> categories =

@@ -9,6 +9,7 @@ import '../../screens/welcomeView/welcome_screen.dart';
 import '../usuarioView/recent_deals_screen.dart';
 import '../usuarioView/favorites_screen.dart';
 import '../proveedorView/new_service_screen.dart';
+import 'faq_screen.dart';
 
 class UsuarioView extends StatefulWidget {
   const UsuarioView({Key? key}) : super(key: key);
@@ -260,7 +261,14 @@ class _UsuarioViewState extends State<UsuarioView> {
                 _buildMenuItem(
                   icon: Icons.help_outline,
                   text: 'Preguntas Frecuentes',
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const FaqScreen(),
+                      ),
+                    );
+                  },
                   isDarkMode: isDarkMode,
                 ),
 
