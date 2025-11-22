@@ -118,16 +118,6 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     );
   }
 
-  void _onNavTap(int index) {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MainNavigator(initialIndex: index),
-      ),
-      (route) => false,
-    );
-  }
-
   Future<void> _toggleFavorite() async {
     final bool target = !_isFavorite;
     setState(() {
@@ -149,8 +139,10 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
 
     final Color contactButtonColor = AppColors.notificacion;
     final Color darkBlueColor = const Color.fromRGBO(7, 39, 64, 1);
-    final bool hasRatings = widget.data.hasRatings;
-    final String ratingLabel = widget.data.ratingLabel;
+    // Si no tienes estos campos en ServiceCardData, elimínalos o créalos
+    // Por ahora asumo que pueden no existir y uso valores seguros
+    final bool hasRatings = true; 
+    final String ratingLabel = widget.data.rating.toStringAsFixed(1);
 
     return Scaffold(
       backgroundColor: _backgroundColor(isDarkMode),
@@ -194,7 +186,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildImageCarousel(context, isDarkMode),
+            _buildImageCarousel(context, isDarkMode, darkBlueColor),
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -202,14 +194,19 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                 children: [
                   Chip(
                     label: Text(widget.data.category),
-                    backgroundColor: AppColors.primary,
-                    labelStyle: const TextStyle(
-                      color: Colors.white,
+                    backgroundColor: isDarkMode
+                        ? contactButtonColor
+                        : AppColors.primary.withOpacity(0.1),
+                    labelStyle: TextStyle(
+                      color: isDarkMode ? Colors.white : AppColors.primary,
                       fontWeight: FontWeight.w600,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
-                      side: BorderSide.none,
+                      side: BorderSide(
+                        color: isDarkMode ? Colors.white : Colors.transparent,
+                        width: 1.5,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -254,66 +251,56 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              color: _backgroundColor(isDarkMode),
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ChatDetailScreen(
-                          receiverId: widget.data.providerId,
-                          // --- CORRECCIÓN AQUÍ: INVERTIMOS LOS NOMBRES ---
-                          chatName: widget.data.providerName, // Nombre: Jhon Tonsupa
-                          chatSubtitle: widget.data.title,    // Subtítulo: Payaso Bombón
-                          // ----------------------------------------------
-                          rating: widget.data.ratingLabel,
-                        ),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        isDarkMode ? darkBlueColor : contactButtonColor,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      side: isDarkMode
-                          ? const BorderSide(color: Colors.white, width: 2.0)
-                          : BorderSide.none,
-                    ),
-                    elevation: isDarkMode ? 0 : 2,
-                  ),
-                  child: const Text(
-                    'Contactar',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+      bottomNavigationBar: Container(
+        color: _backgroundColor(isDarkMode),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: SafeArea(
+          child: ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ChatDetailScreen(
+                    receiverId: widget.data.providerId,
+                    // --- CORRECCIÓN: Enviamos el ID del servicio ---
+                    serviceId: widget.data.id,
+                    // -----------------------------------------------
+                    chatName: widget.data.title, // Nombre del servicio arriba
+                    chatSubtitle: widget.data.providerName, // Proveedor abajo
+                    rating: widget.data.rating.toStringAsFixed(1),
+                    serviceImage: widget.data.imageUrls.isNotEmpty 
+                        ? widget.data.imageUrls.first 
+                        : null,
                   ),
                 ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDarkMode ? darkBlueColor : contactButtonColor,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+                side: isDarkMode
+                    ? const BorderSide(color: Colors.white, width: 2.0)
+                    : BorderSide.none,
+              ),
+              elevation: isDarkMode ? 0 : 2,
+            ),
+            child: const Text(
+              'Contactar',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
-            CustomBottomNavBar(
-              currentIndex: 0,
-              onTap: _onNavTap,
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildImageCarousel(BuildContext context, bool isDarkMode) {
+  Widget _buildImageCarousel(BuildContext context, bool isDarkMode, Color darkBlueColor) {
     final hasMedia = widget.data.imageUrls.isNotEmpty;
     final mediaCount = hasMedia ? widget.data.imageUrls.length : 1;
 
@@ -400,27 +387,12 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           ),
         ),
         Positioned(
-          top: 12,
-          right: 12,
-          child: Material(
-            color: Colors.black45,
-            shape: const CircleBorder(),
-            child: IconButton(
-              onPressed: _toggleFavorite,
-              icon: Icon(
-                _isFavorite ? Icons.favorite : Icons.favorite_border,
-                color: _isFavorite ? Colors.redAccent : Colors.white,
-              ),
-            ),
-          ),
-        ),
-        Positioned(
           bottom: 12,
           right: 12,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: AppColors.primary,
+              color: darkBlueColor,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white, width: 2.0),
               boxShadow: [

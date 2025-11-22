@@ -8,18 +8,26 @@ import '../../models/chat_models.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final int? conId;       
-  final int? receiverId;  
+  final int? receiverId;
+  // --- 1. AGREGAMOS EL CAMPO AQUÍ ---
+  final int? serviceId;   
+  // ----------------------------------
   final String chatName;
   final String chatSubtitle;
   final String rating;
+  final String? serviceImage; 
 
   const ChatDetailScreen({
     super.key,
     this.conId,
     this.receiverId,
+    // --- 2. Y LO AGREGAMOS AL CONSTRUCTOR ---
+    this.serviceId,       
+    // ----------------------------------------
     required this.chatName,
     required this.chatSubtitle,
     required this.rating,
+    this.serviceImage,
   });
 
   @override
@@ -38,57 +46,38 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   void initState() {
     super.initState();
     _currentConId = widget.conId;
-    
-    // --- DEBUG LOGS ---
-    print("--- INICIANDO CHAT ---");
-    print("Nombre: ${widget.chatName}");
-    print("conId inicial: $_currentConId");
-    print("receiverId (Proveedor): ${widget.receiverId}");
-    // ------------------
-
     _loadHistory();
   }
 
   Future<void> _loadHistory() async {
     final myUserId = Provider.of<UserProvider>(context, listen: false).userId;
-    print("Mi UserID: $myUserId"); // Debug
-    
     if (myUserId == null) {
-      print("Error: No hay usuario logueado");
       setState(() => _isLoading = false);
       return;
     }
 
-    // 1. Buscar conversación si no tenemos ID
+    // Buscamos si existe chat para ESTE servicio específico
     if (_currentConId == null && widget.receiverId != null) {
-      print("Buscando conversación entre $myUserId y ${widget.receiverId}...");
       try {
-        final existingId = await _chatService.checkConversation(myUserId, widget.receiverId!);
-        print("Respuesta del servidor (Conversation ID): $existingId");
-        
+        // Pasamos el serviceId a la búsqueda
+        final existingId = await _chatService.checkConversation(
+            myUserId, widget.receiverId!, serviceId: widget.serviceId);
+            
         if (existingId != null) {
           _currentConId = existingId; 
         }
       } catch (e) {
         print("Error buscando conversación: $e");
       }
-    } else {
-      print("Saltando búsqueda: Ya tenemos conId ($_currentConId) o falta receiverId");
     }
 
-    // 2. Si sigue siendo null, es nuevo
     if (_currentConId == null) {
-      print("Resultado: Chat NUEVO (Vacío)");
       setState(() => _isLoading = false);
       return;
     }
 
-    // 3. Cargar mensajes
-    print("Cargando historial del chat ID: $_currentConId...");
     try {
       final msgs = await _chatService.getHistory(_currentConId!, myUserId);
-      print("Mensajes cargados: ${msgs.length}");
-      
       if (mounted) {
         setState(() {
           _messages = msgs;
@@ -96,7 +85,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         });
       }
     } catch (e) {
-      print("Error cargando historial: $e");
+      print("Error history: $e");
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -111,12 +100,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _textController.clear();
 
     try {
-      print("Enviando mensaje a receiverId: ${widget.receiverId}, conId: $_currentConId");
-      
       final newMessage = await _chatService.sendMessage(
         senderId: myUserId,
         receiverId: widget.receiverId, 
         conId: _currentConId,
+        serviceId: widget.serviceId, // --- PASAMOS EL ID DEL SERVICIO AL CREAR ---
         content: text,
       );
 
@@ -125,13 +113,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           _messages.add(newMessage);
         });
 
-        // Actualizar ID si era nuevo
         if (_currentConId == null && widget.receiverId != null) {
-           // Pequeña espera para que la BD procese
            await Future.delayed(const Duration(milliseconds: 500));
-           final newConId = await _chatService.checkConversation(myUserId, widget.receiverId!);
+           final newConId = await _chatService.checkConversation(
+               myUserId, widget.receiverId!, serviceId: widget.serviceId);
            if (newConId != null) {
-             print("Chat creado exitosamente con ID: $newConId");
              setState(() {
                _currentConId = newConId;
              });
@@ -146,7 +132,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  // --- Helpers de Color (Sin cambios) ---
+  // Helpers de color
   Color _backgroundColor(bool isDark) => isDark ? AppColors.backgroundDark : Colors.white;
   Color _appBarColor(bool isDark) => isDark ? AppColors.backgroundDark : Colors.white;
   Color _textColor(bool isDark) => isDark ? AppColors.darkText : Colors.black;
@@ -167,7 +153,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final userProvider = Provider.of<UserProvider>(context);
     final bool isDarkMode = themeProvider.isDarkMode;
     final int myUserId = userProvider.userId ?? 0;
-    final bool hasNumericRating = double.tryParse(widget.rating) != null;
 
     return Scaffold(
       backgroundColor: _backgroundColor(isDarkMode),
@@ -179,23 +164,36 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           icon: Icon(Icons.arrow_back, color: _textColor(isDarkMode)),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row( 
           children: [
-            Text(
-              widget.chatName,
-              style: TextStyle(
-                color: _textColor(isDarkMode),
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
+            if (widget.serviceImage != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: CircleAvatar(
+                  backgroundImage: NetworkImage(widget.serviceImage!),
+                  radius: 20,
+                ),
               ),
-            ),
-            Text(
-              widget.chatSubtitle,
-              style: TextStyle(
-                color: _subTextColor(isDarkMode),
-                fontSize: 14,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.chatName,
+                  style: TextStyle(
+                    color: _textColor(isDarkMode),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  widget.chatSubtitle,
+                  style: TextStyle(
+                    color: _subTextColor(isDarkMode),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -212,10 +210,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     fontSize: 16,
                   ),
                 ),
-                if (hasNumericRating) ...[
-                  const SizedBox(width: 4),
-                  const Icon(Icons.star, color: Colors.amber, size: 20),
-                ],
+                const SizedBox(width: 4),
+                const Icon(Icons.star, color: Colors.amber, size: 20),
               ],
             ),
           )

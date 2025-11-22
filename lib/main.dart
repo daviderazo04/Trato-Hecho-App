@@ -1,4 +1,6 @@
+import 'dart:async'; // Importar Timer
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,10 +13,15 @@ import 'config/theme_provider.dart';
 import 'config/user_provider.dart'; 
 import 'screens/welcomeView/welcome_screen.dart';
 import 'screens/auth/login_screen.dart'; 
+import 'services/chat_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    print("Error cargando .env: $e");
+  }
   final prefs = await SharedPreferences.getInstance();
   final bool seenWelcome = prefs.getBool('seenWelcome') ?? false;
   final bool isDark = prefs.getBool('isDarkMode') ?? false;
@@ -48,12 +55,10 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-
     return MaterialApp(
       title: 'TratoHecho',
       theme: ThemeData(
-        brightness:
-            themeProvider.isDarkMode ? Brightness.dark : Brightness.light,
+        brightness: themeProvider.isDarkMode ? Brightness.dark : Brightness.light,
         primarySwatch: Colors.blue,
         scaffoldBackgroundColor:
             themeProvider.isDarkMode ? const Color(0xFF213748) : Colors.white,
@@ -73,19 +78,18 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// --- MAIN NAVIGATOR ---
 class MainNavigator extends StatefulWidget {
-  const MainNavigator({super.key, this.initialIndex = 0});
-
-  final int initialIndex;
+  const MainNavigator({super.key});
 
   @override
   State<MainNavigator> createState() => _MainNavigatorState();
 }
 
 class _MainNavigatorState extends State<MainNavigator> {
-  late int _selectedIndex;
+  int _selectedIndex = 0;
   bool _hasUnreadMessages = false;
+  final ChatService _chatService = ChatService();
+  Timer? _pollingTimer; // Variable para el Timer
 
   void _updateUnreadStatus(bool hasUnread) {
     if (mounted) {
@@ -100,7 +104,6 @@ class _MainNavigatorState extends State<MainNavigator> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = _sanitizeIndex(widget.initialIndex);
     _widgetOptions = <Widget>[
       HomeFeedScreen(),
       const SearchScreen(),
@@ -109,28 +112,60 @@ class _MainNavigatorState extends State<MainNavigator> {
       ),
       const UsuarioView(),
     ];
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkGlobalNotifications();
+      _startPolling(); // Iniciar el polling
+    });
   }
 
-  int _sanitizeIndex(int index) {
-    if (index < 0) return 0;
-    if (index > 3) return 3;
-    return index;
+  @override
+  void dispose() {
+    _stopPolling(); // Detener el polling al salir
+    super.dispose();
+  }
+
+  // --- LÓGICA DE POLLING ---
+  void _startPolling() {
+    // Verifica notificaciones cada 10 segundos
+    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _checkGlobalNotifications();
+    });
+  }
+
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+  }
+  // -------------------------
+
+  Future<void> _checkGlobalNotifications() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    if (userProvider.userId != null) {
+      // Hacemos la llamada en segundo plano sin bloquear la UI
+      try {
+        final hasUnread = await _chatService.getUnreadStatus(userProvider.userId!);
+        if (mounted) {
+          setState(() {
+            _hasUnreadMessages = hasUnread;
+          });
+        }
+      } catch (e) {
+        print("Error polling notifications: $e");
+      }
+    }
   }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+    _checkGlobalNotifications();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // --- CAMBIO CLAVE PARA REFRESCAR CHATS ---
-      // Quitamos IndexedStack y usamos .elementAt. 
-      // Esto fuerza a que la pantalla se reconstruya cada vez que entras.
       body: _widgetOptions.elementAt(_selectedIndex),
-      // -----------------------------------------
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,

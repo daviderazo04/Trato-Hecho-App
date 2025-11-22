@@ -16,10 +16,12 @@ class ChatService {
         List<dynamic> body = jsonDecode(utf8.decode(response.bodyBytes));
         return body.map((dynamic item) => InboxChat.fromJson(item)).toList();
       } else {
-        throw Exception('Error al cargar inbox: ${response.statusCode}');
+        print('Error API Inbox: ${response.body}');
+        return []; 
       }
     } catch (e) {
-      throw Exception('Error de conexión: $e');
+      print('Excepción en getInbox: $e');
+      return []; 
     }
   }
 
@@ -34,22 +36,29 @@ class ChatService {
         List<dynamic> body = jsonDecode(utf8.decode(response.bodyBytes));
         return body.map((dynamic item) => ChatMessage.fromJson(item)).toList();
       } else {
-        throw Exception('Error al cargar historial');
+        print('Error API History: ${response.body}');
+        return [];
       }
     } catch (e) {
-      throw Exception('Error de conexión: $e');
+      print('Excepción en getHistory: $e');
+      return [];
     }
   }
 
-  Future<int?> checkConversation(int senderId, int receiverId) async {
-    final url = Uri.parse('${ApiConfig.chat}/check/$receiverId?senderId=$senderId');
+  // 3. Verificar si existe conversación
+  Future<int?> checkConversation(int senderId, int receiverId, {int? serviceId}) async {
+    String urlStr = '${ApiConfig.chat}/check/$receiverId?senderId=$senderId';
+    if (serviceId != null) {
+      urlStr += '&serId=$serviceId';
+    }
+    
+    final url = Uri.parse(urlStr);
     
     try {
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        // Si devuelve un número (ej: 15), es el ID. Si devuelve null/vacío, no existe.
-        if (response.body.isEmpty || response.body == 'null') return null;
+        if (response.body.isEmpty || response.body.trim() == 'null') return null;
         return int.tryParse(response.body);
       }
       return null;
@@ -59,15 +68,15 @@ class ChatService {
     }
   }
 
-  // 3. Enviar Mensaje
+  // 4. Enviar Mensaje
   Future<ChatMessage?> sendMessage({
     required int senderId,
     int? receiverId, 
     int? conId,      
+    int? serviceId,
     required String content,
   }) async {
-     // ... (código existente)
-     final url = Uri.parse('${ApiConfig.chat}/send');
+    final url = Uri.parse('${ApiConfig.chat}/send');
     
     try {
       final response = await http.post(
@@ -77,6 +86,7 @@ class ChatService {
           'senderId': senderId,
           'receiverId': receiverId,
           'conId': conId,
+          'serId': serviceId,
           'contenido': content,
         }),
       );
@@ -91,6 +101,23 @@ class ChatService {
     } catch (e) {
       print('Error de conexión al enviar: $e');
       return null;
+    }
+  }
+
+  // --- 5. NUEVO: Obtener estado global de no leídos ---
+  Future<bool> getUnreadStatus(int userId) async {
+    final url = Uri.parse('${ApiConfig.chat}/unread-status/$userId');
+    
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        return body['hasUnread'] ?? false;
+      }
+      return false;
+    } catch (e) {
+      print('Error checking unread status: $e');
+      return false;
     }
   }
 }
