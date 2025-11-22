@@ -32,4 +32,5 @@ class ApiConfig {
   static String historialContrataciones(int userId) =>
       '$baseUrl/contrataciones/historial/$userId';
   static String get calificarServicio => '$baseUrl/calificaciones/calificar';
+  static String misServicios(int userId) => '$baseUrl/servicios/mis-servicios/$userId';
 }

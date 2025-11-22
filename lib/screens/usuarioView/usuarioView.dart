@@ -10,6 +10,9 @@ import '../usuarioView/recent_deals_screen.dart';
 import '../usuarioView/favorites_screen.dart';
 import '../proveedorView/new_service_screen.dart';
 import 'faq_screen.dart';
+import '../../services/my_services_service.dart';
+import '../homeView/home_screen.dart' show ServiceCardData;
+import '../homeView/service_detail_screen.dart';
 
 class UsuarioView extends StatefulWidget {
   const UsuarioView({Key? key}) : super(key: key);
@@ -20,9 +23,13 @@ class UsuarioView extends StatefulWidget {
 
 class _UsuarioViewState extends State<UsuarioView> {
   final ScrollController _scrollController = ScrollController();
+  final MyServicesService _myServicesService = MyServicesService();
 
   bool _isSupplierMode = false;
   String _selectedFontSize = '16 pt';
+  bool _isLoadingMyServices = false;
+  String? _myServicesError;
+  List<ServiceCardData> _myServices = [];
 
   @override
   void dispose() {
@@ -36,6 +43,42 @@ class _UsuarioViewState extends State<UsuarioView> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
+  }
+
+  void _openMyService(ServiceCardData data) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ServiceDetailScreen(
+          data: data,
+          isFavorite: data.esFavorito,
+          showActions: false, // no contactar/contratar desde mis tratos proveedor
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadMyServices() async {
+    final userId = Provider.of<UserProvider>(context, listen: false).userId;
+    if (userId == null) {
+      setState(() {
+        _isLoadingMyServices = false;
+        _myServicesError = 'Inicia sesión para ver tus servicios.';
+      });
+      return;
+    }
+    setState(() {
+      _isLoadingMyServices = true;
+      _myServicesError = null;
+    });
+    final list = await _myServicesService.getMyServices(userId);
+    if (!mounted) return;
+    setState(() {
+      _myServices = list;
+      _isLoadingMyServices = false;
+      _myServicesError =
+          list.isEmpty ? 'No tienes servicios publicados.' : null;
+    });
   }
 
   // --- Helper to get dynamic colors based on Global Dark Mode ---
@@ -169,6 +212,9 @@ class _UsuarioViewState extends State<UsuarioView> {
                             setState(() {
                               _isSupplierMode = value;
                             });
+                            if (value) {
+                              _loadMyServices();
+                            }
                           },
                           activeColor: Colors.white,
                           activeTrackColor: AppColors.primary,
@@ -310,27 +356,40 @@ class _UsuarioViewState extends State<UsuarioView> {
                   const SizedBox(height: 16),
                   SizedBox(
                     height: 140,
-                    child: ListView(
-                      controller: _scrollController,
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.only(bottom: 10),
-                      children: const [
-                        _ServiceCard(
-                            imageUrl:
-                                'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROP0F8frSy8dG_OEnlu6tcyS6LYBsXYC5h1g&s',
-                            serviceName: 'Mariachis'),
-                        SizedBox(width: 16),
-                        _ServiceCard(
-                            imageUrl:
-                                'https://media.minutouno.com/p/4a0e318ddc071d2050e87fbc4adaec7f/adjuntos/150/imagenes/027/232/0027232808/610x0/smart/enano.png',
-                            serviceName: 'Enanos'),
-                        SizedBox(width: 16),
-                        _ServiceCard(
-                            imageUrl:
-                                'https://ichef.bbci.co.uk/ace/ws/640/amz/worldservice/live/assets/images/2015/04/11/150411184332_reino4.jpg.webp',
-                            serviceName: 'Bailarines'),
-                      ],
-                    ),
+                    child: _isLoadingMyServices
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.primary,
+                            ),
+                          )
+                        : _myServicesError != null
+                            ? Center(
+                                child: Text(
+                                  _myServicesError!,
+                                  style: TextStyle(
+                                    color: _textColor(isDarkMode),
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                controller: _scrollController,
+                                scrollDirection: Axis.horizontal,
+                                padding: const EdgeInsets.only(bottom: 10),
+                                itemCount: _myServices.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(width: 16),
+                                itemBuilder: (context, index) {
+                                  final item = _myServices[index];
+                                  final imageUrl = item.imageUrls.isNotEmpty
+                                      ? item.imageUrls.first
+                                      : ServiceCardData.fallbackImage;
+                                  return _ServiceCard(
+                                    imageUrl: imageUrl,
+                                    serviceName: item.title,
+                                    onTap: () => _openMyService(item),
+                                  );
+                                },
+                              ),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
@@ -588,62 +647,67 @@ class _UsuarioViewState extends State<UsuarioView> {
 class _ServiceCard extends StatelessWidget {
   final String imageUrl;
   final String serviceName;
+  final VoidCallback? onTap;
 
   const _ServiceCard({
     Key? key,
     required this.imageUrl,
     required this.serviceName,
+    this.onTap,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 140,
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(15.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 5,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(15.0),
-        child: Column(
-          children: [
-            Expanded(
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: AppColors.border,
-                    child: const Center(
-                      child: Icon(Icons.broken_image, color: Colors.grey),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(vertical: 10.0, horizontal: 8.0),
-              child: Text(
-                serviceName,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: 140,
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(15.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 5,
+              offset: const Offset(0, 3),
             ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15.0),
+          child: Column(
+            children: [
+              Expanded(
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: AppColors.border,
+                      child: const Center(
+                        child: Icon(Icons.broken_image, color: Colors.grey),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10.0, horizontal: 8.0),
+                child: Text(
+                  serviceName,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -16,12 +16,14 @@ class ServiceDetailScreen extends StatefulWidget {
   final ServiceCardData data;
   final bool isFavorite;
   final Future<void> Function()? onFavoriteToggle;
+  final bool showActions;
 
   const ServiceDetailScreen({
     super.key,
     required this.data,
     this.isFavorite = false,
     this.onFavoriteToggle,
+    this.showActions = true,
   });
 
   @override
@@ -35,6 +37,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   final Map<int, Future<void>> _initializeVideoFutures = {};
   late bool _isFavorite;
   final int _navbarIndex = 0;
+  bool get _showActions => widget.showActions;
 
   @override
   void initState() {
@@ -244,96 +247,98 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ChatDetailScreen(
-                              receiverId: widget.data.providerId,
-                              serviceId: widget.data.id,
-                              chatName: widget.data.title,
-                              chatSubtitle: widget.data.providerName,
-                              rating: widget.data.rating.toStringAsFixed(1),
-                              serviceImage: widget.data.imageUrls.isNotEmpty
-                                  ? widget.data.imageUrls.first
-                                  : null,
-                            ),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            isDarkMode ? darkBlueColor : contactButtonColor,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: isDarkMode
-                              ? const BorderSide(
-                                  color: Colors.white, width: 1.5)
-                              : BorderSide.none,
-                        ),
-                        elevation: isDarkMode ? 0 : 2,
-                      ),
-                      child: const Text(
-                        'Contactar',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final serviceId = widget.data.id;
-                        if (serviceId == null || serviceId <= 0) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  'No se puede contratar: falta el ID del servicio.'),
+                  if (widget.showActions) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChatDetailScreen(
+                                receiverId: widget.data.providerId,
+                                serviceId: widget.data.id,
+                                chatName: widget.data.title,
+                                chatSubtitle: widget.data.providerName,
+                                rating: widget.data.rating.toStringAsFixed(1),
+                                serviceImage: widget.data.imageUrls.isNotEmpty
+                                    ? widget.data.imageUrls.first
+                                    : null,
+                              ),
                             ),
                           );
-                          return;
-                        }
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ContratarServicioScreen(
-                              serviceId: serviceId,
-                              serviceName: widget.data.title,
-                              serviceImage: widget.data.imageUrls.isNotEmpty
-                                  ? widget.data.imageUrls.first
-                                  : null,
-                              fallbackPrice: widget.data.price,
-                            ),
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              isDarkMode ? darkBlueColor : contactButtonColor,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: isDarkMode
+                                ? const BorderSide(
+                                    color: Colors.white, width: 1.5)
+                                : BorderSide.none,
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.notificacion,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          elevation: isDarkMode ? 0 : 2,
                         ),
-                        elevation: isDarkMode ? 0 : 2,
-                      ),
-                      child: const Text(
-                        'Hacer un trato',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                        child: const Text(
+                          'Contactar',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final serviceId = widget.data.id;
+                          if (serviceId == null || serviceId <= 0) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    'No se puede contratar: falta el ID del servicio.'),
+                              ),
+                            );
+                            return;
+                          }
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ContratarServicioScreen(
+                                serviceId: serviceId,
+                                serviceName: widget.data.title,
+                                serviceImage: widget.data.imageUrls.isNotEmpty
+                                    ? widget.data.imageUrls.first
+                                    : null,
+                                fallbackPrice: widget.data.price,
+                              ),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.notificacion,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: isDarkMode ? 0 : 2,
+                        ),
+                        child: const Text(
+                          'Hacer un trato',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
