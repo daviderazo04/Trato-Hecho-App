@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'; // Import Provider
+import 'package:video_player/video_player.dart';
 // Importamos el modelo de datos que está en 'home_screen.dart'
 import 'home_screen.dart' show ServiceCardData;
 // Importamos la pantalla de chat
@@ -19,6 +20,8 @@ class ServiceDetailScreen extends StatefulWidget {
 class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   late final PageController _pageController;
   int _currentIndex = 0;
+  final Map<int, VideoPlayerController> _videoControllers = {};
+  final Map<int, Future<void>> _initializeVideoFutures = {};
 
   @override
   void initState() {
@@ -28,11 +31,16 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
 
   @override
   void dispose() {
+    for (final controller in _videoControllers.values) {
+      controller.dispose();
+    }
     _pageController.dispose();
     super.dispose();
   }
 
   void _handlePageChanged(int index) {
+    final prevController = _videoControllers[_currentIndex];
+    prevController?.pause();
     setState(() {
       _currentIndex = index;
     });
@@ -47,6 +55,40 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
 
   Color _subTextColor(bool isDark) =>
       isDark ? Colors.grey[400]! : AppColors.gray;
+
+  bool _isVideo(String url) {
+    final lower = url.toLowerCase();
+    return lower.contains('.mp4') ||
+        lower.contains('.mov') ||
+        lower.contains('.webm') ||
+        lower.contains('.mkv') ||
+        lower.contains('.m3u8') ||
+        lower.contains('video');
+  }
+
+  Future<void> _ensureVideoInitialized(int index, String url) {
+    if (_initializeVideoFutures.containsKey(index)) {
+      return _initializeVideoFutures[index]!;
+    }
+    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    _videoControllers[index] = controller;
+    final initFuture = controller.initialize();
+    controller.setLooping(true);
+    _initializeVideoFutures[index] = initFuture;
+    return initFuture;
+  }
+
+  void _togglePlay(int index) {
+    final controller = _videoControllers[index];
+    if (controller == null) return;
+    setState(() {
+      if (controller.value.isPlaying) {
+        controller.pause();
+      } else {
+        controller.play();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -117,23 +159,14 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                   // --- CATEGORÍA (El Chip Verde) ---
                   Chip(
                     label: Text(widget.data.category),
-                    // LÓGICA: Si es oscuro, fondo VERDE. Si es claro, azul suave.
-                    backgroundColor: isDarkMode
-                        ? contactButtonColor // Verde sólido
-                        : accentColor.withOpacity(0.1),
+                    backgroundColor: AppColors.primary,
                     labelStyle: TextStyle(
-                      // LÓGICA: Si es oscuro, texto BLANCO. Si es claro, azul.
-                      color: isDarkMode ? Colors.white : accentColor,
+                      color: Colors.white,
                       fontWeight: FontWeight.w600,
                     ),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      // --- CAMBIO AQUÍ: Borde blanco en modo oscuro ---
-                      side: BorderSide(
-                        color: isDarkMode ? Colors.white : Colors.transparent,
-                        width: 1.5, // Un borde sutil pero visible
-                      ),
-                      // -----------------------------------------------
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide.none,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -230,8 +263,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
 
   // --- WIDGET PARA EL CARRUSEL DE IMÁGENES ---
   Widget _buildImageCarousel(BuildContext context, bool isDarkMode, Color darkBlueColor) {
-    final hasImages = widget.data.imageUrls.isNotEmpty;
-    final imageCount = hasImages ? widget.data.imageUrls.length : 1;
+    final hasMedia = widget.data.imageUrls.isNotEmpty;
+    final mediaCount = hasMedia ? widget.data.imageUrls.length : 1;
 
     return Stack(
       children: [
@@ -239,15 +272,78 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           aspectRatio: 16 / 10,
           child: PageView.builder(
             controller: _pageController,
-            itemCount: imageCount,
+            itemCount: mediaCount,
             onPageChanged: _handlePageChanged,
             itemBuilder: (context, index) {
-              if (!hasImages) {
+              if (!hasMedia) {
                 return Container(color: Colors.grey.shade200);
               }
-              return Image.network(
-                widget.data.imageUrls[index],
-                fit: BoxFit.cover,
+              final url = widget.data.imageUrls[index];
+              final isVideo = _isVideo(url);
+              if (!isVideo) {
+                return Image.network(
+                  url,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: Colors.grey.shade200,
+                    child: const Icon(
+                      Icons.broken_image,
+                      color: Colors.black38,
+                    ),
+                  ),
+                );
+              }
+              return FutureBuilder(
+                future: _ensureVideoInitialized(index, url),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Container(
+                      color: Colors.black,
+                      child: const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return Container(
+                      color: Colors.black,
+                      child: const Center(
+                        child: Icon(
+                          Icons.error_outline,
+                          color: Colors.white,
+                        ),
+                      ),
+                    );
+                  }
+                  final controller = _videoControllers[index]!;
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      AspectRatio(
+                        aspectRatio: controller.value.isInitialized
+                            ? controller.value.aspectRatio
+                            : (16 / 10),
+                        child: VideoPlayer(controller),
+                      ),
+                      GestureDetector(
+                        onTap: () => _togglePlay(index),
+                        child: Container(
+                          width: 64,
+                          height: 64,
+                          decoration: const BoxDecoration(
+                            color: Colors.black45,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                            color: Colors.white,
+                            size: 38,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               );
             },
           ),
@@ -260,14 +356,11 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              // Aquí usamos el color: Azul Oscuro nuevo o Azul Primario (según preferencia o tema)
-              // Para ser consistentes con tu petición, usaré el azul oscuro nuevo en ambos modos
-              // o solo en dark mode si prefieres. Aquí lo pongo fijo al darkBlueColor para que se vea como pides.
-              color: darkBlueColor, 
+              color: AppColors.primary,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: Colors.white, // Borde blanco
-                width: 2.0,
+                width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
@@ -278,7 +371,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
               ],
             ),
             child: Text(
-              '\$ ${widget.data.price}',
+              '\$ ${widget.data.price.toStringAsFixed(2)}',
               style: const TextStyle(
                 color: AppColors.backgroundWhite,
                 fontWeight: FontWeight.bold,
@@ -306,13 +399,13 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
             alignment: Alignment.centerRight,
             child: Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: _ImageArrow(
-                icon: Icons.arrow_forward_ios,
-                onTap: _goNext,
-                enabled: _currentIndex < imageCount - 1,
-              ),
+            child: _ImageArrow(
+              icon: Icons.arrow_forward_ios,
+              onTap: _goNext,
+              enabled: _currentIndex < mediaCount - 1,
             ),
           ),
+        ),
         ),
 
         // --- INDICADORES DE PÁGINA ---
@@ -322,9 +415,9 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           right: 0,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: hasImages
+            children: hasMedia
                 ? List.generate(
-                    imageCount,
+                    mediaCount,
                     (index) => AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       width: index == _currentIndex ? 12 : 8,

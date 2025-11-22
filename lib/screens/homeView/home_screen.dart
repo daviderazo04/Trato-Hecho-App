@@ -1,5 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:video_player/video_player.dart';
+
 import 'service_detail_screen.dart';
+import '../../config/api_config.dart';
 import '../../config/appColors.dart';
 
 class HomeFeedScreen extends StatefulWidget {
@@ -11,8 +17,11 @@ class HomeFeedScreen extends StatefulWidget {
 
 class _HomeFeedScreenState extends State<HomeFeedScreen> {
   final TextEditingController _searchController = TextEditingController();
+  List<ServiceCardData> _services = [];
   List<ServiceCardData> _filteredServices = [];
   String? _selectedCategory;
+  bool _isLoading = true;
+  String? _error;
 
   final List<CategoryItemData> _categories = const [
     CategoryItemData(icon: Icons.celebration, label: 'Fiestas'),
@@ -20,56 +29,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     CategoryItemData(icon: Icons.emoji_people, label: 'Baile'),
   ];
 
-  final List<ServiceCardData> _services = const [
-    ServiceCardData(
-      imageUrls: [
-        'https://img.vorecol.com/ia-images/1502/mazamitla-mariachi15.jpeg',
-        'https://www.viajabonito.mx/wp-content/uploads/2021/07/canciones-de-mariachi-50.jpg',
-        'https://estaticosgn-cdn.deia.eus/clip/02be8ee3-8a11-440e-b360-d7e34ab0f688_16-9-discover-aspect-ratio_default_0.jpg',
-      ],
-      title: "Mariachi \"El Sol\"",
-      providerName: 'Gustavo David',
-      rating: 4.6,
-      category: 'Música',
-      price: 15,
-      description:
-          '¡Dale vida y luz a tu evento con Mariachi \'El Sol\'! Somos un grupo de músicos profesionales dedicados a llevar la auténtica pasión y alegría de la música ranchera directamente a tu celebración.',
-    ),
-    ServiceCardData(
-      imageUrls: [
-        'https://diverticarts.com/wp-content/uploads/disneybotargas1.jpg',
-        'https://res.cloudinary.com/kosmoapp/image/upload/v1661978302/services/images/wqwzrth2f0qclaex33zh.jpg',
-        'https://miro.medium.com/0*WVoLwv7pmP4bQcFF.jpg',
-      ],
-      title: 'Botargueros Infantiles',
-      providerName: 'Blinky',
-      rating: 4.2,
-      category: 'Fiestas',
-      price: 10,
-      description:
-          'Diversión garantizada para los más pequeños. Ofrecemos juegos, pintacaritas, globoflexia y shows temáticos para hacer de su fiesta un día inolvidable.',
-    ),
-    ServiceCardData(
-      imageUrls: [
-        'https://dnwp63qf32y8i.cloudfront.net/423d13ab39b4f6e8365d9a12e925dc2df7f96cc6',
-        'https://dnwp63qf32y8i.cloudfront.net/166253847d4029ef258157dc63cec55634f24cf5',
-        'https://images.squarespace-cdn.com/content/v1/52b4c979e4b056e96533da8d/1387755905167-TLN167ICDNT07DV6HH30/_SAR0828.jpg',
-      ],
-      title: 'Bailarines Profesionales',
-      providerName: 'Tap Dance Ecuador',
-      rating: 4.7,
-      category: 'Baile',
-      price: 25,
-      description:
-          'Shows de baile - tap dance. Perfecto para sorprender a todos con un espectáculo único.',
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
-    _filteredServices = _services;
     _searchController.addListener(_filterServices);
+    _fetchServices();
   }
 
   @override
@@ -79,14 +43,56 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     super.dispose();
   }
 
+  Future<void> _fetchServices() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/servicios'),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> decoded =
+            jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+        final services = decoded
+            .map((item) => ServiceCardData.fromJson(item as Map<String, dynamic>))
+            .toList();
+
+        if (!mounted) return;
+        setState(() {
+          _services = services;
+        });
+        _filterServices();
+      } else {
+        if (!mounted) return;
+        setState(() {
+          _error = 'Error ${response.statusCode} al cargar servicios';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudo cargar servicios: $e';
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   void _filterServices() {
     final query = _searchController.text.toLowerCase();
     setState(() {
       _filteredServices = _services.where((service) {
         final serviceTitle = service.title.toLowerCase();
         final matchesSearch = serviceTitle.contains(query);
-        final matchesCategory =
-            _selectedCategory == null || service.category == _selectedCategory;
+        final matchesCategory = _selectedCategory == null ||
+            service.category.toLowerCase() == _selectedCategory!.toLowerCase();
         return matchesSearch && matchesCategory;
       }).toList();
     });
@@ -109,23 +115,57 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     final theme = Theme.of(context);
     final Color accentColor = const Color.fromRGBO(59, 96, 125, 1);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+    Widget content;
+    if (_isLoading) {
+      content = const Center(child: CircularProgressIndicator());
+    } else if (_error != null) {
+      content = Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _SearchField(controller: _searchController),
-              const SizedBox(height: 24),
-              _CategoryHeader(
-                categories: _categories,
-                accentColor: accentColor,
-                selectedCategory: _selectedCategory,
-                onCategorySelected: _selectCategory,
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _fetchServices,
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      content = SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SearchField(controller: _searchController),
+            const SizedBox(height: 24),
+            _CategoryHeader(
+              categories: _categories,
+              accentColor: accentColor,
+              selectedCategory: _selectedCategory,
+              onCategorySelected: _selectCategory,
+            ),
+            const SizedBox(height: 24),
+            if (_filteredServices.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 20),
+                  child: Text(
+                    'No hay servicios disponibles',
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: Colors.grey[600]),
+                  ),
+                ),
+              )
+            else
               for (final service in _filteredServices)
                 GestureDetector(
                   onTap: () {
@@ -147,9 +187,15 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                     ),
                   ),
                 ),
-            ],
-          ),
+          ],
         ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
+      body: SafeArea(
+        child: content,
       ),
     );
   }
@@ -295,6 +341,8 @@ class _ServiceCard extends StatefulWidget {
 class _ServiceCardState extends State<_ServiceCard> {
   late final PageController _pageController;
   int _currentIndex = 0;
+  final Map<int, VideoPlayerController> _videoControllers = {};
+  final Map<int, Future<void>> _initializeVideoFutures = {};
 
   @override
   void initState() {
@@ -304,11 +352,16 @@ class _ServiceCardState extends State<_ServiceCard> {
 
   @override
   void dispose() {
+    for (final controller in _videoControllers.values) {
+      controller.dispose();
+    }
     _pageController.dispose();
     super.dispose();
   }
 
   void _handlePageChanged(int index) {
+    final prevController = _videoControllers[_currentIndex];
+    prevController?.pause();
     setState(() {
       _currentIndex = index;
     });
@@ -330,10 +383,44 @@ class _ServiceCardState extends State<_ServiceCard> {
     );
   }
 
+  bool _isVideo(String url) {
+    final lower = url.toLowerCase();
+    return lower.contains('.mp4') ||
+        lower.contains('.mov') ||
+        lower.contains('.webm') ||
+        lower.contains('.mkv') ||
+        lower.contains('.m3u8') ||
+        lower.contains('video');
+  }
+
+  Future<void> _ensureVideoInitialized(int index, String url) {
+    if (_initializeVideoFutures.containsKey(index)) {
+      return _initializeVideoFutures[index]!;
+    }
+    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    _videoControllers[index] = controller;
+    final initFuture = controller.initialize();
+    controller.setLooping(true);
+    _initializeVideoFutures[index] = initFuture;
+    return initFuture;
+  }
+
+  void _togglePlay(int index) {
+    final controller = _videoControllers[index];
+    if (controller == null) return;
+    setState(() {
+      if (controller.value.isPlaying) {
+        controller.pause();
+      } else {
+        controller.play();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final hasImages = widget.data.imageUrls.isNotEmpty;
-    final imageCount = hasImages ? widget.data.imageUrls.length : 1;
+    final hasMedia = widget.data.imageUrls.isNotEmpty;
+    final mediaCount = hasMedia ? widget.data.imageUrls.length : 1;
 
     return Container(
       decoration: BoxDecoration(
@@ -358,10 +445,10 @@ class _ServiceCardState extends State<_ServiceCard> {
                   aspectRatio: 4 / 3,
                   child: PageView.builder(
                     controller: _pageController,
-                    itemCount: imageCount,
+                    itemCount: mediaCount,
                     onPageChanged: _handlePageChanged,
                     itemBuilder: (context, index) {
-                      if (!hasImages) {
+                      if (!hasMedia) {
                         return Container(
                           color: Colors.grey.shade200,
                           child: const Icon(
@@ -371,9 +458,72 @@ class _ServiceCardState extends State<_ServiceCard> {
                           ),
                         );
                       }
-                      return Image.network(
-                        widget.data.imageUrls[index],
-                        fit: BoxFit.cover,
+                      final url = widget.data.imageUrls[index];
+                      final isVideo = _isVideo(url);
+                      if (!isVideo) {
+                        return Image.network(
+                          url,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: Colors.grey.shade200,
+                            child: const Icon(
+                              Icons.broken_image,
+                              color: Colors.black38,
+                              size: 48,
+                            ),
+                          ),
+                        );
+                      }
+                      return FutureBuilder(
+                        future: _ensureVideoInitialized(index, url),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return Container(
+                              color: Colors.black,
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }
+                          if (snapshot.hasError) {
+                            return Container(
+                              color: Colors.black,
+                              child: const Center(
+                                child: Icon(
+                                  Icons.error_outline,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            );
+                          }
+                          final controller = _videoControllers[index]!;
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              AspectRatio(
+                                aspectRatio:
+                                    controller.value.isInitialized ? controller.value.aspectRatio : (4 / 3),
+                                child: VideoPlayer(controller),
+                              ),
+                              GestureDetector(
+                                onTap: () => _togglePlay(index),
+                                child: Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black45,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                                    color: Colors.white,
+                                    size: 36,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       );
                     },
                   ),
@@ -403,7 +553,7 @@ class _ServiceCardState extends State<_ServiceCard> {
                         background: Colors.black54,
                         iconColor: Colors.white,
                         onTap: _goNext,
-                        enabled: _currentIndex < imageCount - 1,
+                        enabled: _currentIndex < mediaCount - 1,
                       ),
                     ),
                   ),
@@ -414,9 +564,9 @@ class _ServiceCardState extends State<_ServiceCard> {
                   right: 0,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: hasImages
+                    children: hasMedia
                         ? List.generate(
-                            imageCount,
+                            mediaCount,
                             (index) => AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
                               width: index == _currentIndex ? 12 : 8,
@@ -577,6 +727,7 @@ class CategoryItemData {
 
 class ServiceCardData {
   const ServiceCardData({
+    this.id,
     required this.imageUrls,
     required this.title,
     required this.providerName,
@@ -587,11 +738,50 @@ class ServiceCardData {
     required this.description,
   });
 
+  final int? id;
   final List<String> imageUrls;
   final String title;
   final String providerName; // Campo renombrado
   final double rating;
   final String category;
-  final int price;
+  final double price;
   final String description;
+
+  factory ServiceCardData.fromJson(Map<String, dynamic> json) {
+    final List<String> images =
+        (json['multimediaUrls'] as List<dynamic>?)
+                ?.whereType<String>()
+                .toList() ??
+            [];
+    final List<String> categories =
+        (json['categorias'] as List<dynamic>?)
+                ?.whereType<String>()
+                .toList() ??
+            [];
+
+    return ServiceCardData(
+      id: json['id'] as int?,
+      imageUrls: images,
+      title: json['nombre'] as String? ?? 'Servicio',
+      providerName: json['usuarioNombre'] as String? ?? 'Proveedor',
+      rating: (json['promedioCalificacion'] as num?)?.toDouble() ?? 0,
+      category: _mapCategory(categories.isNotEmpty ? categories.first : 'Servicios'),
+      price: (json['precio'] as num?)?.toDouble() ?? 0,
+      description: json['descripcion'] as String? ?? '',
+    );
+  }
+
+  static String _mapCategory(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.contains('música') || lower.contains('musica')) {
+      return 'Música';
+    }
+    if (lower.contains('fiesta')) {
+      return 'Fiestas';
+    }
+    if (lower.contains('baile') || lower.contains('danza')) {
+      return 'Baile';
+    }
+    return raw;
+  }
 }
