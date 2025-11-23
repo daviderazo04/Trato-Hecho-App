@@ -3,27 +3,16 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../config/appColors.dart';
 
-// ----------------------------------------------------------------------
-// CONFIGURACIÓN DE LA API (SIMULANDO OBTENCIÓN DE .ENV)
-// ----------------------------------------------------------------------
+// --- CONFIGURACIÓN DE LA API (Usando dotenv) ---
+final String BASE_API_URL =
+    dotenv.env['API_BASE_URL'] ?? 'http://10.0.2.2:8080/api';
+final String CATEGORIES_URL = "$BASE_API_URL/categorias";
+final String SERVICES_URL = "$BASE_API_URL/servicios";
 
-// Usamos una constante estática para simular la configuración centralizada.
-// Tu valor de .env es: API_BASE_URL=http://localhost:8080/api
-// Adaptamos esto para que la clase de Dart pueda construir las URLs completas.
-class ApiConfig {
-  // Asegúrate de que esta URL sea accesible (ej. http://10.0.2.2:8080 para Android emulator)
-  static const String BASE_API_URL = "http://10.0.2.2:8080/api";
-
-  static const String CATEGORIES = "$BASE_API_URL/categorias";
-  static const String SERVICES = "$BASE_API_URL/servicios";
-}
-
-// ----------------------------------------------------------------------
-// MODELO DE DATOS
-// ----------------------------------------------------------------------
-
+// --- MODELO PARA CATEGORÍAS ---
 class Category {
   final int id;
   final String nombre;
@@ -61,13 +50,13 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
 
   // --- ESTADO DE LÓGICA DE NEGOCIO ---
   final List<Category> _availableCategories = [];
+  // CAMBIO 1: La lista de categorías seleccionadas inicia VACÍA.
   final List<Category> _selectedCategoriesObjects = [];
   final List<File> _selectedFiles = [];
 
   bool _isLoadingCategories = true;
   bool _isPublishing = false;
 
-  // SIMULACIÓN DE USER ID (DEBE VENIR DE UN PROVIDER REAL)
   final int _currentUserId = 1;
 
   // --- INITIALIZATION ---
@@ -85,14 +74,35 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
     super.dispose();
   }
 
+  // Lógica de limpieza y redirección
+  void _clearFormAndNavigateBack() {
+    _titleController.clear();
+    _priceController.clear();
+    _descriptionController.clear();
+
+    setState(() {
+      _selectedCategoriesObjects.clear();
+      _selectedFiles.clear();
+    });
+
+    // Redirige a la pestaña de atrás
+    Navigator.pop(context);
+  }
+
   // ============================================================
   // LÓGICA DE API Y ESTADO
   // ============================================================
 
-  // OBTENER CATEGORÍAS
   Future<void> _fetchCategories() async {
+    if (BASE_API_URL.isEmpty) {
+      print("API URL no cargada. No se pueden obtener categorías.");
+      setState(() => _isLoadingCategories = false);
+      return;
+    }
+
     try {
-      final response = await http.get(Uri.parse(ApiConfig.CATEGORIES));
+      final response = await http.get(Uri.parse(CATEGORIES_URL));
+
       if (response.statusCode == 200) {
         final List<dynamic> jsonList =
             json.decode(utf8.decode(response.bodyBytes));
@@ -101,11 +111,6 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
           _availableCategories
               .addAll(jsonList.map((json) => Category.fromJson(json)).toList());
           _isLoadingCategories = false;
-          // Inicializa las categorías seleccionadas con un ejemplo si la lista está vacía
-          if (_selectedCategoriesObjects.isEmpty &&
-              _availableCategories.isNotEmpty) {
-            _selectedCategoriesObjects.addAll(_availableCategories.take(3));
-          }
         });
       } else {
         throw Exception("Failed to load categories: ${response.statusCode}");
@@ -116,7 +121,7 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(
-                '❌ Error al cargar categorías: ${e.toString().split(':').last}'),
+                '❌ Error al cargar categorías. ${e.toString().split(':').last}'),
             backgroundColor: AppColors.error),
       );
     }
@@ -126,16 +131,25 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
   Future<void> _createService() async {
     if (_isPublishing) return;
 
-    // Validación básica
     final price = double.tryParse(_priceController.text) ?? 0.0;
+
+    // CAMBIO 3: Validación completa de campos
     if (_titleController.text.isEmpty ||
         price <= 0 ||
         _selectedCategoriesObjects.isEmpty) {
+      String message;
+      if (_titleController.text.isEmpty) {
+        message = '⚠️ El título es obligatorio.';
+      } else if (price <= 0) {
+        message = '⚠️ El precio debe ser mayor a cero.';
+      } else if (_selectedCategoriesObjects.isEmpty) {
+        message = '⚠️ Debe seleccionar al menos una categoría.';
+      } else {
+        message = '⚠️ Complete todos los campos.';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text('⚠️ Complete título, precio y seleccione categorías.'),
-            backgroundColor: AppColors.warning),
+        SnackBar(content: Text(message), backgroundColor: AppColors.warning),
       );
       return;
     }
@@ -143,7 +157,6 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
     setState(() => _isPublishing = true);
 
     try {
-      // 1. Crear el DTO JSON
       final serviceDto = {
         "userId": _currentUserId,
         "nombre": _titleController.text,
@@ -152,24 +165,15 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
         "categoriasIds": _selectedCategoriesObjects.map((c) => c.id).toList(),
       };
 
-      // 2. Crear el MultipartRequest
-      var request =
-          http.MultipartRequest('POST', Uri.parse(ApiConfig.SERVICES));
-
-      // 3. Agregar el DTO JSON como campo 'servicio'
+      var request = http.MultipartRequest('POST', Uri.parse(SERVICES_URL));
       request.fields['servicio'] = jsonEncode(serviceDto);
 
-      // 4. Agregar archivos multimedia (Máx 3)
       for (var file in _selectedFiles.take(3)) {
         request.files.add(
-          await http.MultipartFile.fromPath(
-            'files', // Clave requerida por la API
-            file.path,
-          ),
+          await http.MultipartFile.fromPath('files', file.path),
         );
       }
 
-      // 5. Enviar la petición
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
@@ -179,7 +183,8 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
               content: Text('✅ Servicio publicado con éxito'),
               backgroundColor: AppColors.success),
         );
-        // Opcional: Navegar de regreso: Navigator.pop(context);
+        // CAMBIO 4: Redireccionar al éxito
+        _clearFormAndNavigateBack();
       } else {
         final errorBody = json.decode(utf8.decode(response.bodyBytes));
         throw Exception(
@@ -216,7 +221,6 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
     if (pickedFiles.isNotEmpty) {
       setState(() {
         _selectedFiles.addAll(pickedFiles.map((xfile) => File(xfile.path)));
-        // Limitar a 3 archivos después de la selección
         if (_selectedFiles.length > 3) {
           _selectedFiles.removeRange(3, _selectedFiles.length);
         }
@@ -267,10 +271,10 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // Título principal (Centrado)
-                      Text(
+                      const Text(
                         "Nuevo Servicio",
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: Colors.black,
@@ -462,6 +466,20 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
   }
 
   Widget _buildCategoryChips() {
+    // CAMBIO 2: Si no hay categorías seleccionadas, muestra el mensaje
+    if (_selectedCategoriesObjects.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Text(
+          "Ninguna categoría seleccionada.",
+          textAlign: TextAlign.left,
+          style:
+              TextStyle(color: Colors.grey[600], fontStyle: FontStyle.italic),
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
       child: Wrap(
