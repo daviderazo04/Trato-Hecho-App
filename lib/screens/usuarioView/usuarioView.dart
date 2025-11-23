@@ -177,34 +177,16 @@ class _UsuarioViewState extends State<UsuarioView> {
                 // --- 1. HEADER ---
                 Row(
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color:
-                                isDarkMode ? AppColors.primary : Colors.white,
-                            width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: const CircleAvatar(
-                        radius: 42,
-                        backgroundImage: NetworkImage(
-                          'https://www.jreventos.com.ar/uploads/servicio-imagen/big/af332f5af35068cd6a8935e65c7f0a5c.jpeg',
-                        ),
-                      ),
+                    _ProfileAvatar(
+                      imageUrl: userProvider.userPhotoUrl,
+                      isDarkMode: isDarkMode,
                     ),
                     const SizedBox(width: 20),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Pedro Salas',
+                          userProvider.userName ?? 'Usuario',
                           style: TextStyle(
                             color: _textColor(isDarkMode),
                             fontSize: 22,
@@ -706,6 +688,49 @@ class _UsuarioViewState extends State<UsuarioView> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// --- Profile Avatar ---
+class _ProfileAvatar extends StatelessWidget {
+  final String? imageUrl;
+  final bool isDarkMode;
+
+  const _ProfileAvatar({
+    Key? key,
+    required this.imageUrl,
+    required this.isDarkMode,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+            color: isDarkMode ? AppColors.primary : Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: CircleAvatar(
+        radius: 42,
+        backgroundColor: AppColors.backgroundLight,
+        backgroundImage: hasImage ? NetworkImage(imageUrl!) : null,
+        child: hasImage
+            ? null
+            : Icon(
+                Icons.person,
+                size: 40,
+                color: isDarkMode ? Colors.white : AppColors.textSecondary,
+              ),
+      ),
     );
   }
 }

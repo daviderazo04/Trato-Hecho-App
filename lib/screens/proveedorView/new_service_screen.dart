@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart'; // Import Provider
 import '../../config/theme_provider.dart'; // Import ThemeProvider
+import '../../config/user_provider.dart';
 import '../../config/appColors.dart';
 
 // --- CONFIGURACIÓN DE LA API ---
@@ -57,8 +58,6 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
 
   bool _isLoadingCategories = true;
   bool _isPublishing = false;
-
-  final int _currentUserId = 1;
 
   @override
   void initState() {
@@ -128,6 +127,18 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
   Future<void> _createService() async {
     if (_isPublishing) return;
 
+    final userId =
+        Provider.of<UserProvider>(context, listen: false).userId;
+
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('⚠️ Inicia sesión para publicar un servicio.'),
+            backgroundColor: AppColors.warning),
+      );
+      return;
+    }
+
     final price = double.tryParse(_priceController.text) ?? 0.0;
 
     if (_titleController.text.isEmpty ||
@@ -154,7 +165,7 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
 
     try {
       final serviceDto = {
-        "userId": _currentUserId,
+        "userId": userId,
         "nombre": _titleController.text,
         "descripcion": _descriptionController.text,
         "precio": price,

@@ -9,6 +9,7 @@ class UserProvider with ChangeNotifier {
   int? _userId;
   String? _userName;
   String? _userRole;
+  String? _userPhotoUrl;
   bool _isLoading = false;
 
   // --- SUPPLIER MODE (Added) ---
@@ -18,6 +19,7 @@ class UserProvider with ChangeNotifier {
   int? get userId => _userId;
   String? get userName => _userName;
   String? get userRole => _userRole;
+  String? get userPhotoUrl => _userPhotoUrl;
   bool get isLoading => _isLoading;
   bool get isSupplierMode => _isSupplierMode;
 
@@ -32,6 +34,7 @@ class UserProvider with ChangeNotifier {
     _userId = prefs.getInt('userId');
     _userName = prefs.getString('userName');
     _userRole = prefs.getString('userRole');
+    _userPhotoUrl = prefs.getString('userPhotoUrl');
 
     // Load Supplier Mode
     _isSupplierMode = prefs.getBool('isSupplierMode') ?? false;
@@ -71,12 +74,18 @@ class UserProvider with ChangeNotifier {
         _userId = usuarioJson['userId'];
         _userName = usuarioJson['userNombreCompleto'];
         _userRole = usuarioJson['userRol'];
+        _userPhotoUrl = usuarioJson['userFotoPerfil'];
 
         // Save to SharedPreferences
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt('userId', _userId!);
         await prefs.setString('userName', _userName ?? '');
         await prefs.setString('userRole', _userRole ?? '');
+        if (_userPhotoUrl != null) {
+          await prefs.setString('userPhotoUrl', _userPhotoUrl!);
+        } else {
+          await prefs.remove('userPhotoUrl');
+        }
 
         // IMPORTANT: Set 'isLoggedIn' for main.dart compatibility
         await prefs.setBool('isLoggedIn', true);
@@ -101,12 +110,14 @@ class UserProvider with ChangeNotifier {
     _userId = null;
     _userName = null;
     _userRole = null;
+    _userPhotoUrl = null;
     _isSupplierMode = false; // Reset mode on logout
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userId');
     await prefs.remove('userName');
     await prefs.remove('userRole');
+    await prefs.remove('userPhotoUrl');
     await prefs.setBool('isSupplierMode', false);
     await prefs.setBool('isLoggedIn', false); // Update auth state
 
