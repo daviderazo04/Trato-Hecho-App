@@ -883,10 +883,7 @@ class _ResultCard extends StatelessWidget {
                   AspectRatio(
                     aspectRatio: 16 / 9,
                     child: _hasMedia
-                        ? Image.network(
-                            data.imageUrls.first,
-                            fit: BoxFit.cover,
-                          )
+                        ? _buildImage(data.imageUrls.first)
                         : Container(
                             color: Colors.grey.shade200,
                             child: const Icon(
@@ -1037,6 +1034,34 @@ class _ResultCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildImage(String url) {
+    const fallback = ServiceCardData.fallbackImage;
+    if (url.startsWith('assets/')) {
+      return Image.asset(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Image.asset(
+          fallback,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Image.asset(
+          fallback,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+    return Image.asset(
+      fallback,
+      fit: BoxFit.cover,
     );
   }
 }

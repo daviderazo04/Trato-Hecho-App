@@ -157,13 +157,17 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
 
   bool _isVideo(String url) {
     final lower = url.toLowerCase();
-    return lower.contains('.mp4') ||
-        lower.contains('.mov') ||
-        lower.contains('.webm') ||
-        lower.contains('.mkv') ||
-        lower.contains('.m3u8') ||
-        lower.contains('video');
+    return _isHttpUrl(url) &&
+        (lower.contains('.mp4') ||
+            lower.contains('.mov') ||
+            lower.contains('.webm') ||
+            lower.contains('.mkv') ||
+            lower.contains('.m3u8') ||
+            lower.contains('video'));
   }
+
+  bool _isHttpUrl(String url) =>
+      url.startsWith('http://') || url.startsWith('https://');
 
   Future<void> _ensureVideoInitialized(int index, String url) {
     if (_initializeVideoFutures.containsKey(index)) {
@@ -504,18 +508,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
               final isVideo = _isVideo(url);
 
               if (!isVideo) {
-                return Image.network(
-                  url,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: Colors.grey.shade200,
-                    child: const Icon(
-                      Icons.broken_image,
-                      color: Colors.black38,
-                      size: 48,
-                    ),
-                  ),
-                );
+                return _buildImage(url);
               }
 
               return FutureBuilder(
@@ -662,6 +655,37 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildImage(String url) {
+    const fallback = ServiceCardData.fallbackImage;
+
+    if (url.startsWith('assets/')) {
+      return Image.asset(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Image.asset(
+          fallback,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    if (_isHttpUrl(url)) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Image.asset(
+          fallback,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    return Image.asset(
+      fallback,
+      fit: BoxFit.cover,
     );
   }
 }

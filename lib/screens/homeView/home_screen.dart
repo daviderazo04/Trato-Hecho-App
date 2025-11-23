@@ -1177,15 +1177,19 @@ class ServiceCardData {
       hasRatings ? rating.toStringAsFixed(1) : 'Sin calificaciones';
 
   static const String fallbackImage = 'assets/images/cakeLogin.png';
+  static bool _isHttpUrl(String url) =>
+      url.startsWith('http://') || url.startsWith('https://');
 
   factory ServiceCardData.fromJson(Map<String, dynamic> json) {
     // Manejo seguro de listas que pueden venir nulas o vacías
-    final List<String> images = (json['multimediaUrls'] as List<dynamic>?)
-            ?.whereType<String>()
-            .toList() ??
-        [];
+    final List<String> images = ((json['multimediaUrls'] as List<dynamic>?)
+                ?.whereType<String>()
+                .toList() ??
+            [])
+        .where((u) => _isHttpUrl(u) || u.startsWith('assets/'))
+        .toList();
 
-    // Imagen por defecto si la lista está vacía
+    // Imagen por defecto si la lista está vacía o todas las URLs fueron descartadas
     if (images.isEmpty) {
       images.add(fallbackImage);
     }
