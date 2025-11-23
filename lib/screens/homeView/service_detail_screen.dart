@@ -2,15 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:trato_hecho_app/main.dart' show MainNavigator;
 import 'package:video_player/video_player.dart';
-
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // Para obtener la URL base
 import '../../config/appColors.dart';
 import '../../config/theme_provider.dart';
+// Asumo la existencia del UserProvider en la carpeta config
+import '../../config/user_provider.dart';
 import '../../widgets/custom_bottom_nav_bar.dart';
-// Importamos la pantalla de chat
 import '../chatView/chat_detail_screen.dart';
 import '../chatView/contratar_servicio_screen.dart';
-// Importamos el modelo de datos que está en 'home_screen.dart'
 import 'home_screen.dart' show ServiceCardData;
+
+// --- CONFIGURACIÓN DE LA API ---
+final String BASE_API_URL =
+    dotenv.env['API_BASE_URL'] ?? 'http://10.0.2.2:8080/api';
+const String DELETE_SERVICE_ENDPOINT =
+    "/servicios"; // Se complementará con el ID y query param
 
 class ServiceDetailScreen extends StatefulWidget {
   final ServiceCardData data;
@@ -38,6 +45,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   late bool _isFavorite;
   final int _navbarIndex = 0;
   bool get _showActions => widget.showActions;
+  bool _isDeleting = false; // Estado para el loading del botón de borrar
 
   @override
   void initState() {
@@ -53,6 +61,80 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     }
     _pageController.dispose();
     super.dispose();
+  }
+
+  // --- LÓGICA DE BORRADO ---
+  Future<void> _deleteService() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.userId;
+    final serviceId = widget.data.id;
+
+    if (userId == null || serviceId == null || _isDeleting) return;
+
+    final confirmed = await _showConfirmationDialog(context);
+    if (!confirmed) return;
+
+    setState(() => _isDeleting = true);
+
+    try {
+      final url = Uri.parse(
+          '$BASE_API_URL$DELETE_SERVICE_ENDPOINT/$serviceId?userId=$userId');
+
+      final response = await http.delete(url);
+
+      if (response.statusCode == 200) {
+        // Éxito: notificar y regresar
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('✅ Servicio eliminado con éxito.'),
+              backgroundColor: AppColors.success),
+        );
+        Navigator.pop(context); // Regresa a la vista anterior (UsuarioView)
+      } else {
+        throw Exception(
+            'Fallo al eliminar servicio: ${response.statusCode} - ${response.reasonPhrase}');
+      }
+    } catch (e) {
+      print('Error al eliminar servicio: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('❌ Error: ${e.toString().split(':').last}'),
+            backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isDeleting = false);
+      }
+    }
+  }
+
+  // --- DIÁLOGO DE CONFIRMACIÓN ---
+  Future<bool> _showConfirmationDialog(BuildContext context) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Confirmar Borrado'),
+              content: const Text(
+                  '¿Estás seguro de que deseas eliminar este servicio de forma permanente? Esta acción no se puede deshacer.'),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancelar',
+                      style: TextStyle(color: AppColors.gray)),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.error),
+                  child: const Text('Borrar',
+                      style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 
   void _handlePageChanged(int index) {
@@ -140,9 +222,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
 
     final Color contactButtonColor = AppColors.notificacion;
     final Color darkBlueColor = const Color.fromRGBO(7, 39, 64, 1);
-    // Si no tienes estos campos en ServiceCardData, elimínalos o créalos
-    // Por ahora asumo que pueden no existir y uso valores seguros
-    final bool hasRatings = true; 
+
+    final bool hasRatings = true;
     final String ratingLabel = widget.data.rating.toStringAsFixed(1);
 
     return Scaffold(
@@ -247,7 +328,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  if (widget.showActions) ...[
+                  // --- ACCIONES DE CLIENTE (CONTACTAR / HACER TRATO) ---
+                  if (_showActions) ...[
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -338,6 +420,43 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                         ),
                       ),
                     ),
+                  ]
+                  // --- ACCIÓN DE PROVEEDOR (BORRAR SERVICIO) ---
+                  else ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _isDeleting ? null : _deleteService,
+                        icon: _isDeleting
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.delete_forever,
+                                color: Colors.white),
+                        label: Text(
+                          _isDeleting ? 'Borrando...' : 'Borrar este servicio',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.error,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: isDarkMode ? 0 : 2,
+                        ),
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -360,7 +479,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     );
   }
 
-  Widget _buildImageCarousel(BuildContext context, bool isDarkMode, Color darkBlueColor) {
+  Widget _buildImageCarousel(
+      BuildContext context, bool isDarkMode, Color darkBlueColor) {
     final hasMedia = widget.data.imageUrls.isNotEmpty;
     final mediaCount = hasMedia ? widget.data.imageUrls.length : 1;
 

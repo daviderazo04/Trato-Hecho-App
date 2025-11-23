@@ -52,7 +52,8 @@ class _UsuarioViewState extends State<UsuarioView> {
         builder: (_) => ServiceDetailScreen(
           data: data,
           isFavorite: data.esFavorito,
-          showActions: false, // no contactar/contratar desde mis tratos proveedor
+          showActions:
+              false, // no contactar/contratar desde mis tratos proveedor
         ),
       ),
     );
@@ -325,7 +326,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Mis Tratos',
+                        'Mis Servicios',
                         style: TextStyle(
                           color: _textColor(isDarkMode),
                           fontSize: 20,
