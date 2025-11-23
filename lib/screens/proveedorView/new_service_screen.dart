@@ -191,6 +191,14 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
                 content: Text('✅ Servicio publicado con éxito'),
                 backgroundColor: AppColors.success),
           );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'ℹ️ Tu servicio puede tardar unos minutos en aparecer en las búsquedas.'),
+              backgroundColor: AppColors.gray,
+              duration: Duration(seconds: 4),
+            ),
+          );
           _clearFormAndNavigateBack();
         }
       } else {

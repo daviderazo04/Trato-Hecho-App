@@ -342,14 +342,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                   isDarkMode: isDarkMode,
                 ),
 
-                if (isSupplierMode)
-                  _buildMenuItem(
-                    icon: Icons.publish,
-                    text: 'Publicar Servicios',
-                    onTap: () {},
-                    isDarkMode: isDarkMode,
-                  )
-                else
+                if (!isSupplierMode)
                   _buildMenuItem(
                     icon: Icons.check,
                     text: 'Prestar Servicios',

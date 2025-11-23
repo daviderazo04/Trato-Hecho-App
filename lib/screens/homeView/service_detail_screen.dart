@@ -218,6 +218,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final userProvider = Provider.of<UserProvider>(context);
     final bool isDarkMode = themeProvider.isDarkMode;
 
     final Color contactButtonColor = AppColors.notificacion;
@@ -225,6 +226,10 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
 
     final bool hasRatings = true;
     final String ratingLabel = widget.data.rating.toStringAsFixed(1);
+    final bool isOwner =
+        userProvider.userId != null && widget.data.providerId == userProvider.userId;
+    final bool showClientActions = _showActions && !isOwner;
+    final bool showProviderActions = !_showActions && isOwner;
 
     return Scaffold(
       backgroundColor: _backgroundColor(isDarkMode),
@@ -329,7 +334,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                   ),
                   const SizedBox(height: 24),
                   // --- ACCIONES DE CLIENTE (CONTACTAR / HACER TRATO) ---
-                  if (_showActions) ...[
+                  if (showClientActions) ...[
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -420,9 +425,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                         ),
                       ),
                     ),
-                  ]
+                  ] else if (showProviderActions) ...[
                   // --- ACCIÓN DE PROVEEDOR (BORRAR SERVICIO) ---
-                  else ...[
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,

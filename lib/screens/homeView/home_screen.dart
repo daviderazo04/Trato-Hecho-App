@@ -10,6 +10,7 @@ import '../../config/appColors.dart';
 import '../../config/theme_provider.dart';
 import '../../config/user_provider.dart';
 import '../../services/favorites_service.dart';
+import '../../services/my_services_service.dart';
 
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({super.key});
@@ -32,6 +33,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   static const int _pageSize = 6;
   bool _isCategoryForward = true;
   final FavoritesService _favoritesService = FavoritesService();
+  final MyServicesService _myServicesService = MyServicesService();
   final ScrollController _scrollController = ScrollController();
 
   final List<CategoryItemData> _categories = const [
@@ -119,10 +121,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         final List<dynamic> decoded =
             jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
 
-        final services = decoded
+        List<ServiceCardData> services = decoded
             .map((item) =>
                 ServiceCardData.fromJson(item as Map<String, dynamic>))
             .toList();
+
+        // Merge own services to avoid backend filters hiding them from listings.
+        if (userId != null) {
+          final ownServices = await _myServicesService.getMyServices(userId);
+          services = _mergeServices(services, ownServices);
+        }
 
         if (!mounted) return;
         setState(() {
@@ -177,6 +185,30 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       _visibleServices = filtered.take(_pageSize).toList();
       _isLoadingMore = false;
     });
+  }
+
+  List<ServiceCardData> _mergeServices(
+      List<ServiceCardData> base, List<ServiceCardData> extra) {
+    final List<ServiceCardData> withoutId = [];
+    final Map<int, ServiceCardData> byId = {};
+
+    void add(ServiceCardData s) {
+      final id = s.id;
+      if (id == null) {
+        withoutId.add(s);
+      } else {
+        byId.putIfAbsent(id, () => s);
+      }
+    }
+
+    for (final s in base) {
+      add(s);
+    }
+    for (final s in extra) {
+      add(s);
+    }
+
+    return [...withoutId, ...byId.values];
   }
 
   void _selectCategory(String category) {
