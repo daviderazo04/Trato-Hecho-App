@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // Import Provider
+import 'package:provider/provider.dart';
+import 'dart:convert'; // Import for JSON
+import 'package:http/http.dart' as http; // Import for API calls
+
 import '../../config/theme_provider.dart';
-// --- CAMBIO 1: Importamos UserProvider ---
 import '../../config/user_provider.dart';
 import '../../config/appColors.dart';
 import 'edit_profile_screen.dart';
@@ -25,11 +27,28 @@ class _UsuarioViewState extends State<UsuarioView> {
   final ScrollController _scrollController = ScrollController();
   final MyServicesService _myServicesService = MyServicesService();
 
-  bool _isSupplierMode = false;
-  String _selectedFontSize = '16 pt';
   bool _isLoadingMyServices = false;
   String? _myServicesError;
   List<ServiceCardData> _myServices = [];
+
+  // --- ESTADÍSTICAS DEL PROVEEDOR (New Variables) ---
+  int _totalContrataciones = 0;
+  int _totalCalificaciones = 0;
+  double _promedioGeneral = 0.0;
+  bool _isLoadingStats = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      // If initially in supplier mode, load everything
+      if (userProvider.isSupplierMode) {
+        _loadMyServices();
+        _fetchSupplierStats();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -52,13 +71,13 @@ class _UsuarioViewState extends State<UsuarioView> {
         builder: (_) => ServiceDetailScreen(
           data: data,
           isFavorite: data.esFavorito,
-          showActions:
-              false, // no contactar/contratar desde mis tratos proveedor
+          showActions: false,
         ),
       ),
     );
   }
 
+  // --- API 1: CARGAR SERVICIOS ---
   Future<void> _loadMyServices() async {
     final userId = Provider.of<UserProvider>(context, listen: false).userId;
     if (userId == null) {
@@ -82,7 +101,42 @@ class _UsuarioViewState extends State<UsuarioView> {
     });
   }
 
-  // --- Helper to get dynamic colors based on Global Dark Mode ---
+  // --- API 2: CARGAR ESTADÍSTICAS (New Function) ---
+  Future<void> _fetchSupplierStats() async {
+    final userId = Provider.of<UserProvider>(context, listen: false).userId;
+    if (userId == null) return;
+
+    setState(() {
+      _isLoadingStats = true;
+    });
+
+    try {
+      final url = Uri.parse(
+          'https://tratohecho-api-511660074294.us-central1.run.app/api/estadisticas/$userId');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (mounted) {
+          setState(() {
+            _totalContrataciones = data['totalContrataciones'] ?? 0;
+            _totalCalificaciones = data['totalCalificaciones'] ?? 0;
+            // Ensure it's treated as a double
+            _promedioGeneral = (data['promedioGeneral'] ?? 0).toDouble();
+            _isLoadingStats = false;
+          });
+        }
+      } else {
+        print("Error cargando estadísticas: ${response.statusCode}");
+        if (mounted) setState(() => _isLoadingStats = false);
+      }
+    } catch (e) {
+      print("Error fetch stats: $e");
+      if (mounted) setState(() => _isLoadingStats = false);
+    }
+  }
+
+  // --- Helper Colors ---
   Color _backgroundColor(bool isDark) =>
       isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
 
@@ -101,13 +155,12 @@ class _UsuarioViewState extends State<UsuarioView> {
   Widget build(BuildContext context) {
     const double scrollAmount = 156.0;
 
-    // 1. ACCESS THE GLOBAL VARIABLES
     final themeProvider = Provider.of<ThemeProvider>(context);
-    // --- CAMBIO 2: Obtenemos el UserProvider (listen: false porque solo ejecutamos funciones) ---
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context);
 
     final bool isDarkMode = themeProvider.isDarkMode;
     final String currentFontSize = themeProvider.currentFontSizeLabel;
+    final bool isSupplierMode = userProvider.isSupplierMode;
 
     return Scaffold(
       backgroundColor: _backgroundColor(isDarkMode),
@@ -121,7 +174,7 @@ class _UsuarioViewState extends State<UsuarioView> {
               children: [
                 const SizedBox(height: 10),
 
-                // --- 1. HEADER: Avatar & Name ---
+                // --- 1. HEADER ---
                 Row(
                   children: [
                     Container(
@@ -198,7 +251,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        _isSupplierMode ? 'Modo Proveedor' : 'Modo Cliente',
+                        isSupplierMode ? 'Modo Proveedor' : 'Modo Cliente',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -208,13 +261,12 @@ class _UsuarioViewState extends State<UsuarioView> {
                       Transform.scale(
                         scale: 0.9,
                         child: Switch(
-                          value: _isSupplierMode,
+                          value: isSupplierMode,
                           onChanged: (value) {
-                            setState(() {
-                              _isSupplierMode = value;
-                            });
+                            userProvider.setSupplierMode(value);
                             if (value) {
                               _loadMyServices();
+                              _fetchSupplierStats(); // Fetch stats when enabling
                             }
                           },
                           activeColor: Colors.white,
@@ -229,8 +281,8 @@ class _UsuarioViewState extends State<UsuarioView> {
 
                 const SizedBox(height: 20),
 
-                // --- 3. (CONDITIONAL) SUPPLIER STATS ---
-                if (_isSupplierMode) ...[
+                // --- 3. SUPPLIER STATS (Connected to API) ---
+                if (isSupplierMode) ...[
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -242,18 +294,40 @@ class _UsuarioViewState extends State<UsuarioView> {
                               ? Colors.transparent
                               : AppColors.border),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildStatColumn('10', 'Tratos', isDarkMode),
-                        Container(
-                            height: 30, width: 1, color: AppColors.darkText),
-                        _buildStatColumn('4', 'Reviews', isDarkMode),
-                        Container(
-                            height: 30, width: 1, color: AppColors.darkText),
-                        _buildStatColumn('4', 'Años', isDarkMode),
-                      ],
-                    ),
+                    child: _isLoadingStats
+                        ? Center(
+                            child: SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: AppColors.primary),
+                          ))
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              // 1. Tratos (Contrataciones)
+                              _buildStatColumn('$_totalContrataciones',
+                                  'Tratos', isDarkMode),
+                              Container(
+                                  height: 30,
+                                  width: 1,
+                                  color: AppColors.darkText),
+
+                              // 2. Reviews (Calificaciones)
+                              _buildStatColumn('$_totalCalificaciones',
+                                  'Reviews', isDarkMode),
+                              Container(
+                                  height: 30,
+                                  width: 1,
+                                  color: AppColors.darkText),
+
+                              // 3. Rating (Promedio) - Replaces "Años"
+                              _buildStatColumn(
+                                  _promedioGeneral.toStringAsFixed(1),
+                                  'Rating',
+                                  isDarkMode),
+                            ],
+                          ),
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -286,7 +360,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                   isDarkMode: isDarkMode,
                 ),
 
-                if (_isSupplierMode)
+                if (isSupplierMode)
                   _buildMenuItem(
                     icon: Icons.publish,
                     text: 'Publicar Servicios',
@@ -298,9 +372,9 @@ class _UsuarioViewState extends State<UsuarioView> {
                     icon: Icons.check,
                     text: 'Prestar Servicios',
                     onTap: () {
-                      setState(() {
-                        _isSupplierMode = true;
-                      });
+                      userProvider.setSupplierMode(true);
+                      _loadMyServices();
+                      _fetchSupplierStats();
                     },
                     isDarkMode: isDarkMode,
                   ),
@@ -319,8 +393,8 @@ class _UsuarioViewState extends State<UsuarioView> {
                   isDarkMode: isDarkMode,
                 ),
 
-                // --- 5. (CONDITIONAL) SUPPLIER DASHBOARD ---
-                if (_isSupplierMode) ...[
+                // --- 5. SUPPLIER DASHBOARD ---
+                if (isSupplierMode) ...[
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -436,12 +510,6 @@ class _UsuarioViewState extends State<UsuarioView> {
                   },
                   isDarkMode: isDarkMode,
                 ),
-                _buildMenuItem(
-                  icon: Icons.lock_outline,
-                  text: 'Cambiar contraseña',
-                  onTap: () {},
-                  isDarkMode: isDarkMode,
-                ),
 
                 // --- GLOBAL DARK MODE SWITCH ---
                 Padding(
@@ -478,7 +546,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                   ),
                 ),
 
-                // Text Size
+                // --- FONT SIZE SELECTOR ---
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10.0),
                   child: Row(
@@ -535,15 +603,13 @@ class _UsuarioViewState extends State<UsuarioView> {
                   ),
                 ),
 
-                // --- 7. LOGOUT SECTION ---
+                // --- LOGOUT BUTTON ---
                 _buildMenuItem(
                   icon: Icons.logout,
                   text: 'Cerrar Sesion',
                   onTap: () {
-                    // --- CAMBIO 3: Limpiamos datos de AMBOS providers ---
-                    themeProvider.logout(); // Limpia estado visual (isLoggedIn)
-                    userProvider
-                        .logout(); // Limpia datos del usuario (userId = null)
+                    themeProvider.logout();
+                    userProvider.logout();
 
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(

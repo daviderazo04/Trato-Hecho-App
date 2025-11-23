@@ -15,7 +15,7 @@ class ApiConfig {
     if (Platform.isAndroid) {
       return 'http://10.0.2.2:8080/api';
     } else {
-      return 'http://localhost:8080/api';
+      return 'https://tratohecho-api-511660074294.us-central1.run.app/api';
     }
   }
 
@@ -32,5 +32,6 @@ class ApiConfig {
   static String historialContrataciones(int userId) =>
       '$baseUrl/contrataciones/historial/$userId';
   static String get calificarServicio => '$baseUrl/calificaciones/calificar';
-  static String misServicios(int userId) => '$baseUrl/servicios/mis-servicios/$userId';
+  static String misServicios(int userId) =>
+      '$baseUrl/servicios/mis-servicios/$userId';
 }

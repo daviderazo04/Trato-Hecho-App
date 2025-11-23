@@ -14,6 +14,7 @@ class FaqScreen extends StatefulWidget {
 class _FaqScreenState extends State<FaqScreen> {
   bool _isClient = true;
 
+  // --- DATA ---
   List<_FaqItem> get _clientFaqs => const [
         _FaqItem(
           question: '¿Cómo contrato un servicio?',
@@ -23,7 +24,7 @@ class _FaqScreenState extends State<FaqScreen> {
         _FaqItem(
           question: '¿Puedo pedir una oferta personalizada?',
           answer:
-              'Sí. Envía por chat fecha, horario, aforo, dirección y lo que requieres (equipo de sonido, repertorio, temática, extras). El proveedor te enviará la oferta ajustada.',
+              'Sí. Envía por chat fecha, horario, aforo, dirección y lo que requieres. El proveedor te enviará la oferta ajustada.',
         ),
         _FaqItem(
           question: '¿Cómo sé si el proveedor está disponible?',
@@ -43,32 +44,12 @@ class _FaqScreenState extends State<FaqScreen> {
         _FaqItem(
           question: '¿Puedo reprogramar mi evento?',
           answer:
-              'Depende de la política de cancelación o reagendamiento del proveedor. Escríbele por el chat y solicita nueva fecha; podrían aplicar diferencias de tarifa.',
-        ),
-        _FaqItem(
-          question: '¿Qué pasa si el proveedor no llega (no-show)?',
-          answer:
-              'Aplicamos las políticas de la plataforma: puedes pedir devolución y dejar tu reseña. Revisa las condiciones de cancelación y evidencias en el chat.',
-        ),
-        _FaqItem(
-          question: '¿Cómo elijo al mejor proveedor?',
-          answer:
-              'Revisa reseñas, portafolio (fotos/videos), tiempos de respuesta y si tiene Sello Verificado. Compara precios y lo que incluye cada oferta.',
+              'Depende de la política de cancelación o reagendamiento del proveedor. Escríbele por el chat y solicita nueva fecha.',
         ),
         _FaqItem(
           question: '¿Qué hago si me piden pagar por fuera de la app?',
           answer:
               'No aceptes. Paga solo por la app para estar protegido. Reporta el mensaje en el chat.',
-        ),
-        _FaqItem(
-          question: '¿Cuándo se libera el pago al proveedor?',
-          answer:
-              'Tras el check-out o cuando termina la ventana de confirmación del cliente, según el método de pago.',
-        ),
-        _FaqItem(
-          question: '¿Debemos dejar todo por escrito en la app?',
-          answer:
-              'Sí. Usa el chat para acordar dirección, horarios, setlist, equipo, extras y políticas. Así queda registro ante cualquier disputa.',
         ),
       ];
 
@@ -89,11 +70,6 @@ class _FaqScreenState extends State<FaqScreen> {
               'Usamos cifrado y acceso restringido solo para verificación. No se comparte con terceros sin base legal.',
         ),
         _FaqItem(
-          question: '¿Puedo trabajar fuera de mi ciudad?',
-          answer:
-              'Sí. Define tu zona de cobertura, viáticos y tiempos de traslado en tu oferta.',
-        ),
-        _FaqItem(
           question: '¿Cómo envío el link para que me contraten?',
           answer:
               'Desde tu panel o evento, elige “Enviar oferta” y comparte el link de tu servicio o paquete. El cliente paga desde ese link.',
@@ -106,44 +82,24 @@ class _FaqScreenState extends State<FaqScreen> {
         _FaqItem(
           question: '¿Cómo mejoro mi visibilidad?',
           answer:
-              'Completa perfil, sube portafolio, responde rápido, mantén buen rating y obtén el Sello Verificado (identidad y datos validados).',
-        ),
-        _FaqItem(
-          question: '¿Cómo manejo requisitos técnicos?',
-          answer:
-              'Incluye en tu oferta un checklist de sonido, electricidad, escenario y montaje. Confírmalo en el chat antes del evento.',
-        ),
-        _FaqItem(
-          question: '¿Puedo agregar asistentes o staff?',
-          answer:
-              'Sí, si tu categoría lo permite. Deben cumplir reglas de la comunidad y, si aplica, también ser verificados.',
+              'Completa perfil, sube portafolio, responde rápido, mantén buen rating y obtén el Sello Verificado.',
         ),
         _FaqItem(
           question: '¿Qué es el Sello de Proveedor Verificado?',
           answer:
-              'Un distintivo por validar cédula + selfie, correo/teléfono, antecedentes y (opcional) domicilio. Activa también 2FA.',
-        ),
-        _FaqItem(
-          question: '¿Puedo usar la app si soy menor de edad?',
-          answer:
-              'No. El modo proveedor es solo para mayores de edad con documento vigente.',
-        ),
-        _FaqItem(
-          question: '¿Puedo subir fotos/videos del evento?',
-          answer:
-              'Sí, con permiso del cliente. Revisa derechos de imagen y créditos si compartes material promocional.',
-        ),
-        _FaqItem(
-          question: '¿Cómo mejoro mi perfil?',
-          answer:
-              'Foto clara, bio breve, categorías correctas, portafolio, precios transparentes, políticas visibles y tiempo de respuesta bajo.',
+              'Un distintivo por validar cédula + selfie, correo/teléfono y antecedentes.',
         ),
       ];
+
+  // --- HELPER COLORS ---
+  Color _cardColor(bool isDark) =>
+      isDark ? AppColors.darkButtons : const Color(0xFFF0F4F8);
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final bool isDarkMode = themeProvider.isDarkMode;
+
     final Color background =
         isDarkMode ? AppColors.backgroundDark : Colors.white;
     final Color textColor =
@@ -157,39 +113,92 @@ class _FaqScreenState extends State<FaqScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // 1. HEADER
             _Header(
               isDarkMode: isDarkMode,
               onBack: () => Navigator.pop(context),
             ),
+
+            const SizedBox(height: 20),
+
+            // 2. CLIENT/PROVIDER SWITCH (Consistent Design)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: _SegmentedSwitch(
-                isClient: _isClient,
-                onChanged: (value) {
-                  setState(() => _isClient = value);
-                },
-                isDarkMode: isDarkMode,
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+                decoration: BoxDecoration(
+                  color: _cardColor(isDarkMode),
+                  borderRadius: BorderRadius.circular(30.0),
+                  border: Border.all(
+                    color:
+                        isDarkMode ? AppColors.darkBorders : Colors.transparent,
+                    width: 2.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _isClient ? 'Modo Cliente' : 'Modo Proveedor',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                    Transform.scale(
+                      scale: 0.9,
+                      child: Switch(
+                        // If _isClient is true, switch is OFF. If false (Provider), switch is ON.
+                        value: !_isClient,
+                        onChanged: (value) {
+                          setState(() {
+                            _isClient = !value;
+                          });
+                        },
+                        activeColor: Colors.white,
+                        activeTrackColor: AppColors.primary,
+                        inactiveThumbColor: Colors.white,
+                        inactiveTrackColor: const Color(0xFFB0B0B0),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
+
+            const SizedBox(height: 24),
+
+            // 3. SECTION TITLE
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                     color: textColor,
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 12),
+
+            // 4. FAQ LIST
             Expanded(
               child: ListView.separated(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 itemBuilder: (context, index) {
                   final item = faqs[index];
                   return _FaqTile(
@@ -198,7 +207,7 @@ class _FaqScreenState extends State<FaqScreen> {
                     isDarkMode: isDarkMode,
                   );
                 },
-                separatorBuilder: (_, __) => const SizedBox(height: 14),
+                separatorBuilder: (_, __) => const SizedBox(height: 16),
                 itemCount: faqs.length,
               ),
             ),
@@ -209,6 +218,7 @@ class _FaqScreenState extends State<FaqScreen> {
   }
 }
 
+// --- HEADER WIDGET ---
 class _Header extends StatelessWidget {
   const _Header({
     required this.isDarkMode,
@@ -220,37 +230,43 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color barColor =
-        isDarkMode ? AppColors.darkButtons : AppColors.primary;
-    final Color iconColor = isDarkMode ? Colors.white : Colors.white;
+    // Using styles consistent with other screens
+    final Color barColor = AppColors.primary;
+    final Color iconColor = Colors.white;
 
     return Container(
       width: double.infinity,
+      // Matches the padding/style of RecentDeals/Favorites headers
+      padding: const EdgeInsets.only(top: 10, bottom: 10, left: 20, right: 20),
       decoration: BoxDecoration(
         color: barColor,
         borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
+          bottomLeft: Radius.circular(30),
+          bottomRight: Radius.circular(30),
         ),
       ),
-      padding: const EdgeInsets.fromLTRB(12, 12, 16, 14),
       child: Row(
         children: [
-          Material(
-            color: Colors.white,
-            shape: const CircleBorder(),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
             child: IconButton(
-              icon: Icon(Icons.arrow_back, color: barColor),
+              padding: EdgeInsets.zero,
+              icon: Icon(Icons.arrow_back, color: barColor, size: 18),
               onPressed: onBack,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 20),
           const Text(
             'Preguntas Frecuentes',
             style: TextStyle(
               color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              fontSize: 20,
             ),
           ),
           const Spacer(),
@@ -261,95 +277,7 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _SegmentedSwitch extends StatelessWidget {
-  const _SegmentedSwitch({
-    required this.isClient,
-    required this.onChanged,
-    required this.isDarkMode,
-  });
-
-  final bool isClient;
-  final ValueChanged<bool> onChanged;
-  final bool isDarkMode;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color activeColor =
-        isDarkMode ? Colors.white : AppColors.primary.withOpacity(0.9);
-    final Color inactiveColor =
-        isDarkMode ? AppColors.darkButtons : Colors.grey.shade200;
-    final Color textColor =
-        isDarkMode ? AppColors.darkText : AppColors.textPrimary;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: inactiveColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        children: [
-          _SegmentButton(
-            label: 'Clientes',
-            selected: isClient,
-            onTap: () => onChanged(true),
-            activeColor: activeColor,
-            textColor: textColor,
-          ),
-          _SegmentButton(
-            label: 'Proveedores',
-            selected: !isClient,
-            onTap: () => onChanged(false),
-            activeColor: activeColor,
-            textColor: textColor,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SegmentButton extends StatelessWidget {
-  const _SegmentButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.activeColor,
-    required this.textColor,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final Color activeColor;
-  final Color textColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: selected ? activeColor : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? Colors.white : textColor,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+// --- FAQ ITEM WIDGET ---
 class _FaqTile extends StatelessWidget {
   const _FaqTile({
     required this.question,
@@ -387,6 +315,14 @@ class _FaqTile extends StatelessWidget {
             fontSize: 14,
             color: answerColor,
             height: 1.5,
+          ),
+        ),
+        // Add a subtle divider for better readability
+        Padding(
+          padding: const EdgeInsets.only(top: 16.0),
+          child: Divider(
+            color: isDarkMode ? Colors.white24 : Colors.grey[300],
+            height: 1,
           ),
         ),
       ],
