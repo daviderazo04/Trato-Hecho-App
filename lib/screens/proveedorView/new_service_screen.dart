@@ -11,7 +11,7 @@ import '../../config/appColors.dart';
 
 // --- CONFIGURACIÓN DE LA API ---
 final String BASE_API_URL =
-    dotenv.env['API_BASE_URL'] ?? 'http://10.0.2.2:8080/api';
+    dotenv.env['API_BASE_URL'] ?? 'https://tratohecho-api-511660074294.us-central1.run.app/api';
 final String CATEGORIES_URL = "$BASE_API_URL/categorias";
 final String SERVICES_URL = "$BASE_API_URL/servicios";
 

@@ -13,7 +13,7 @@ class ApiConfig {
 
     // Fallback seguro
     if (Platform.isAndroid) {
-      return 'http://10.0.2.2:8080/api';
+      return 'https://tratohecho-api-511660074294.us-central1.run.app/api';
     } else {
       return 'https://tratohecho-api-511660074294.us-central1.run.app/api';
     }

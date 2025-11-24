@@ -15,7 +15,7 @@ import 'home_screen.dart' show ServiceCardData;
 
 // --- CONFIGURACIÓN DE LA API ---
 final String BASE_API_URL =
-    dotenv.env['API_BASE_URL'] ?? 'http://10.0.2.2:8080/api';
+    dotenv.env['API_BASE_URL'] ?? 'https://tratohecho-api-511660074294.us-central1.run.app/api';
 const String DELETE_SERVICE_ENDPOINT =
     "/servicios"; // Se complementará con el ID y query param
 
