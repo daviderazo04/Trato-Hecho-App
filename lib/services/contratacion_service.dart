@@ -116,7 +116,7 @@ class ContratacionService {
     }
   }
 
-  Future<bool> calificar({
+  Future<ContratacionResult> calificar({
     required int userId,
     required int servicioId,
     required int nota,
@@ -132,9 +132,28 @@ class ContratacionService {
           'nota': nota,
         }),
       );
-      return response.statusCode == 200 || response.statusCode == 201;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return ContratacionResult(
+          success: true,
+          message: 'Calificación enviada.',
+        );
+      }
+
+      String message = 'No se pudo enviar la calificación.';
+      try {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        if (errorBody is Map<String, dynamic> &&
+            errorBody['mensaje'] is String) {
+          message = errorBody['mensaje'] as String;
+        }
+      } catch (_) {}
+
+      return ContratacionResult(success: false, message: message);
     } catch (_) {
-      return false;
+      return ContratacionResult(
+        success: false,
+        message: 'Error de conexión. Inténtalo nuevamente.',
+      );
     }
   }
 }

@@ -472,20 +472,6 @@ class _UsuarioViewState extends State<UsuarioView> {
                 // --- 6. CONFIGURATION SECTION ---
                 _buildSectionTitle('Configuración', isDarkMode),
                 const SizedBox(height: 10),
-                _buildMenuItem(
-                  icon: Icons.person_outline,
-                  text: 'Cuenta',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const EditProfileScreen(),
-                      ),
-                    );
-                  },
-                  isDarkMode: isDarkMode,
-                ),
-
                 // --- GLOBAL DARK MODE SWITCH ---
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 14.0),

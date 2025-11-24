@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -38,7 +39,8 @@ class _RateServiceScreenState extends State<RateServiceScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Calificar servicio'),
-        backgroundColor: isDarkMode ? AppColors.backgroundDark : AppColors.primary,
+        backgroundColor:
+            isDarkMode ? AppColors.backgroundDark : AppColors.primary,
         foregroundColor: Colors.white,
       ),
       backgroundColor: background,
@@ -119,7 +121,7 @@ class _RateServiceScreenState extends State<RateServiceScreen> {
     }
 
     setState(() => _submitting = true);
-    final ok = await _contratacionService.calificar(
+    final result = await _contratacionService.calificar(
       userId: userId,
       servicioId: widget.servicioId,
       nota: _nota,
@@ -127,16 +129,140 @@ class _RateServiceScreenState extends State<RateServiceScreen> {
     if (!mounted) return;
     setState(() => _submitting = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            ok ? 'Calificación enviada.' : 'No se pudo enviar la calificación.'),
-        backgroundColor: ok ? AppColors.success : AppColors.error,
-      ),
-    );
-
-    if (ok) {
+    if (result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          backgroundColor: AppColors.success,
+        ),
+      );
       Navigator.pop(context, true);
+    } else {
+      // Mensaje específico de calificación repetida
+      if (result.message.toLowerCase().contains('ya ha calificado')) {
+        _showAlreadyRatedDialog(result.message);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
+  }
+
+  void _showAlreadyRatedDialog(String message) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Cerrar',
+      barrierColor: Colors.black54,
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return const SizedBox.shrink();
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved =
+            CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: curved,
+              child: Center(
+                child: Container(
+                  width: 320,
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF2B6EA3), Color(0xFF1FA5E8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.18),
+                        blurRadius: 22,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        height: 62,
+                        width: 62,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(0.18),
+                        ),
+                        child: const CircleAvatar(
+                          backgroundColor: Colors.white,
+                          child: Icon(
+                            Icons.warning_amber_rounded,
+                            color: Color(0xFF1FA5E8),
+                            size: 30,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Ya calificaste este servicio previamente',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Solo puedes calificar una vez cada servicio.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.white.withOpacity(0.9),
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF1FA5E8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Entendido',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
