@@ -87,7 +87,17 @@ class CustomBottomNavBar extends StatelessWidget {
                   iconSize: 30.0,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  onPressed: () => onTap(2),
+                  onPressed: () {
+                    if (themeProvider.isLoggedIn) {
+                      onTap(2);
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const LoginScreen()),
+                      );
+                    }
+                  },
                 ),
                 if (hasUnreadMessages)
                   Positioned(

@@ -9,6 +9,7 @@ import '../../config/theme_provider.dart';
 // Asumo la existencia del UserProvider en la carpeta config
 import '../../config/user_provider.dart';
 import '../../widgets/custom_bottom_nav_bar.dart';
+import '../auth/login_screen.dart';
 import '../chatView/chat_detail_screen.dart';
 import '../chatView/contratar_servicio_screen.dart';
 import 'home_screen.dart' show ServiceCardData;
@@ -219,6 +220,19 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     }
   }
 
+  bool _redirectToLoginIfNeeded(
+      UserProvider userProvider, ThemeProvider themeProvider) {
+    final bool isLoggedIn =
+        userProvider.userId != null && themeProvider.isLoggedIn;
+    if (!isLoggedIn) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
+    return isLoggedIn;
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -343,6 +357,10 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
+                          if (!_redirectToLoginIfNeeded(
+                              userProvider, themeProvider)) {
+                            return;
+                          }
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -387,6 +405,10 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
+                          if (!_redirectToLoginIfNeeded(
+                              userProvider, themeProvider)) {
+                            return;
+                          }
                           final serviceId = widget.data.id;
                           if (serviceId == null || serviceId <= 0) {
                             ScaffoldMessenger.of(context).showSnackBar(

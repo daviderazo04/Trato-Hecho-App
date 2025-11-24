@@ -4,6 +4,7 @@ import '../../config/theme_provider.dart';
 import '../../config/appColors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trato_hecho_app/main.dart';
+import '../auth/login_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({Key? key}) : super(key: key);
@@ -29,6 +30,15 @@ class WelcomeScreen extends StatelessWidget {
       isDark ? Colors.white24 : AppColors.primary.withOpacity(0.1);
 
   Color _iconColor(bool isDark) => isDark ? Colors.white : AppColors.primary;
+
+  Future<void> _navigateToLogin(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('seenWelcome', true);
+    if (!context.mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,7 +169,7 @@ class WelcomeScreen extends StatelessWidget {
                             subTextColor: _subTextColor(isDarkMode),
                             iconBgColor: _iconBgColor(isDarkMode),
                             iconColor: _iconColor(isDarkMode),
-                            onTap: () {},
+                            onTap: () => _navigateToLogin(context),
                           ),
                         ),
                         const SizedBox(width: 15),
@@ -175,7 +185,7 @@ class WelcomeScreen extends StatelessWidget {
                             subTextColor: _subTextColor(isDarkMode),
                             iconBgColor: _iconBgColor(isDarkMode),
                             iconColor: _iconColor(isDarkMode),
-                            onTap: () {},
+                            onTap: () => _navigateToLogin(context),
                           ),
                         ),
                       ],
