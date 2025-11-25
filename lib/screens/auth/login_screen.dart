@@ -97,6 +97,39 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: backgroundColor,
       body: Stack(
         children: [
+          // Fondo decorativo con el billete al fondo
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: SizedBox(
+                height: 120,
+                child: Stack(
+                  alignment: Alignment.bottomLeft,
+                  children: [
+                    ClipPath(
+                      clipper: BottomAngledClipper(),
+                      child: Container(
+                        height: 50,
+                        width: double.infinity,
+                        color: isDarkMode ? Colors.white : AppColors.primary,
+                      ),
+                    ),
+                    Positioned(
+                      left: 20,
+                      bottom: 20,
+                      child: Image.network(
+                        'https://cdn-icons-png.flaticon.com/512/2454/2454269.png',
+                        height: 80,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           Positioned.fill(
             child: SingleChildScrollView(
               padding: EdgeInsets.zero,
@@ -269,39 +302,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 150),
                 ],
-              ),
-            ),
-          ),
-          // ... (Tu decoración inferior se mantiene igual) ...
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: IgnorePointer(
-              child: SizedBox(
-                height: 120,
-                child: Stack(
-                  alignment: Alignment.bottomLeft,
-                  children: [
-                    ClipPath(
-                      clipper: BottomAngledClipper(),
-                      child: Container(
-                        height: 50,
-                        width: double.infinity,
-                        color: isDarkMode ? Colors.white : AppColors.primary,
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      bottom: 20,
-                      child: Image.network(
-                        'https://cdn-icons-png.flaticon.com/512/2454/2454269.png',
-                        height: 80,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ),

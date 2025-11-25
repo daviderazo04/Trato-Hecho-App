@@ -9,6 +9,7 @@ import '../../config/appColors.dart';
 import '../../config/user_provider.dart';
 import '../../config/theme_provider.dart';
 import '../../services/favorites_service.dart';
+import '../../services/my_services_service.dart';
 import '../homeView/home_screen.dart' show ServiceCardData;
 import '../homeView/service_detail_screen.dart';
 
@@ -35,6 +36,7 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _queryController = TextEditingController();
+  final MyServicesService _myServicesService = MyServicesService();
 
   List<ServiceCardData> _services = [];
   List<ServiceCardData> _filtered = [];
@@ -91,10 +93,16 @@ class _SearchScreenState extends State<SearchScreen> {
         final List<dynamic> decoded =
             jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
 
-        final services = decoded
+        List<ServiceCardData> services = decoded
             .map((item) =>
                 ServiceCardData.fromJson(item as Map<String, dynamic>))
             .toList();
+
+        // Merge own services to avoid backend filters hiding them.
+        if (userId != null) {
+          final ownServices = await _myServicesService.getMyServices(userId);
+          services = _mergeServices(services, ownServices);
+        }
 
         setState(() {
           _services = services;
@@ -126,6 +134,30 @@ class _SearchScreenState extends State<SearchScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  List<ServiceCardData> _mergeServices(
+      List<ServiceCardData> base, List<ServiceCardData> extra) {
+    final List<ServiceCardData> withoutId = [];
+    final Map<int, ServiceCardData> byId = {};
+
+    void add(ServiceCardData s) {
+      final id = s.id;
+      if (id == null) {
+        withoutId.add(s);
+      } else {
+        byId.putIfAbsent(id, () => s);
+      }
+    }
+
+    for (final s in base) {
+      add(s);
+    }
+    for (final s in extra) {
+      add(s);
+    }
+
+    return [...withoutId, ...byId.values];
   }
 
   void _applyFilters() {
@@ -851,10 +883,7 @@ class _ResultCard extends StatelessWidget {
                   AspectRatio(
                     aspectRatio: 16 / 9,
                     child: _hasMedia
-                        ? Image.network(
-                            data.imageUrls.first,
-                            fit: BoxFit.cover,
-                          )
+                        ? _buildImage(data.imageUrls.first)
                         : Container(
                             color: Colors.grey.shade200,
                             child: const Icon(
@@ -1005,6 +1034,34 @@ class _ResultCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildImage(String url) {
+    const fallback = ServiceCardData.fallbackImage;
+    if (url.startsWith('assets/')) {
+      return Image.asset(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Image.asset(
+          fallback,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Image.asset(
+          fallback,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+    return Image.asset(
+      fallback,
+      fit: BoxFit.cover,
     );
   }
 }
