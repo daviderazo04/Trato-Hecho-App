@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Necesario para filtrar input numérico
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import '../../config/theme_provider.dart';
@@ -17,6 +18,9 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  // --- Key para el formulario ---
+  final _formKey = GlobalKey<FormState>();
+
   // --- Controllers ---
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -35,37 +39,89 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _overlaySuccess = false;
   String _overlayMessage = '';
 
+  // Variable para controlar cuándo mostrar errores
+  // Inicialmente desactivado para no molestar al usuario
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+
+  // Variable para habilitar/deshabilitar el botón (opcional, pero útil)
+  // Aunque con la lógica de _autoValidateMode, podemos dejar el botón siempre habilitado
+  // y que al presionar se validen y muestren los errores.
+
+  // Validar edad (Mínimo 18 años)
+  String? _validateDate(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Ingresa tu fecha de nacimiento';
+    }
+    try {
+      final DateTime birthDate = DateTime.parse(value);
+      final DateTime today = DateTime.now();
+      int age = today.year - birthDate.year;
+      if (today.month < birthDate.month ||
+          (today.month == birthDate.month && today.day < birthDate.day)) {
+        age--;
+      }
+      if (age < 18) {
+        return 'Debes ser mayor de 18 años';
+      }
+    } catch (e) {
+      return 'Fecha inválida';
+    }
+    return null;
+  }
+
+  // Validar teléfono (Empieza con 09 y tiene 10 dígitos)
+  String? _validatePhone(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Ingresa tu teléfono';
+    }
+    if (value.length != 10) {
+      return 'El teléfono debe tener 10 dígitos';
+    }
+    if (!value.startsWith('09')) {
+      return 'El teléfono debe empezar con 09';
+    }
+    return null;
+  }
+
+  // Validar contraseñas
+  String? _validatePass(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Ingresa una contraseña';
+    }
+    if (value.length < 6) {
+      return 'Mínimo 6 caracteres';
+    }
+    return null;
+  }
+
+  String? _validateRepeatPass(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Repite la contraseña';
+    }
+    if (value != _passController.text) {
+      return 'Las contraseñas no coinciden';
+    }
+    return null;
+  }
+
   Future<void> _submit(BuildContext context) async {
     if (_isSubmitting) return;
 
-    final String nombreCompleto = _nameController.text.trim();
-    final String correo = _emailController.text.trim();
-    final String username = _usernameController.text.trim();
-    final String pass = _passController.text;
-    final String repeatPass = _repeatPassController.text;
-    final String fechaNac = _dateController.text.trim();
-    final String telefono = _phoneController.text.trim();
-    final String? genero = _selectedGender;
+    // 1. Activamos la validación visual al presionar el botón
+    setState(() {
+      _autoValidateMode = AutovalidateMode.onUserInteraction;
+    });
 
-    if (nombreCompleto.isEmpty ||
-        correo.isEmpty ||
-        username.isEmpty ||
-        pass.isEmpty ||
-        repeatPass.isEmpty ||
-        fechaNac.isEmpty ||
-        telefono.isEmpty ||
-        genero == null) {
-      _showFeedback(
-        success: false,
-        message: 'Completa todos los campos para registrarte.',
-      );
+    // 2. Validamos el formulario completo
+    if (!_formKey.currentState!.validate()) {
+      // Si falla, no hacemos nada más (los errores rojos aparecerán ahora)
       return;
     }
 
-    if (pass != repeatPass) {
+    if (_selectedGender == null) {
       _showFeedback(
         success: false,
-        message: 'Las contraseñas no coinciden.',
+        message: 'Selecciona un género.',
       );
       return;
     }
@@ -76,17 +132,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final body = {
-        "nombreCompleto": nombreCompleto,
-        "correo": correo,
-        "genero": genero,
-        "fechaNacimiento": fechaNac,
-        "telefono": telefono,
-        "nombreUsuario": username,
-        "contrasenia": pass,
+        "nombreCompleto": _nameController.text.trim(),
+        "correo": _emailController.text.trim(),
+        "genero": _selectedGender,
+        "fechaNacimiento": _dateController.text.trim(),
+        "telefono": _phoneController.text.trim(),
+        "nombreUsuario": _usernameController.text.trim(),
+        "contrasenia": _passController.text,
       };
 
+      // Usamos replaceAll por si acaso, o directo ApiConfig.registro si existiera
+      // Asumimos ApiConfig.login existe y transformamos la URL
+      final url = Uri.parse(ApiConfig.login.replaceAll('login', 'registro'));
+      
       final response = await http.post(
-        Uri.parse(ApiConfig.registro),
+        url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(body),
       );
@@ -94,9 +154,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         _showFeedback(
           success: true,
-          message: 'Serás redirigido al login.',
+          message: '¡Registro exitoso! Redirigiendo...',
         );
-        await Future.delayed(const Duration(milliseconds: 2500));
+        await Future.delayed(const Duration(milliseconds: 2000));
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -106,14 +166,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       } else {
         _showFeedback(
           success: false,
-          message: 'Revisa tus datos e intenta nuevamente.',
+          message: 'Error en el registro. Verifica tus datos o usuario ya existe.',
         );
         await Future.delayed(const Duration(milliseconds: 1700));
       }
     } catch (e) {
       _showFeedback(
         success: false,
-        message: 'Error de red: $e',
+        message: 'Error de conexión: $e',
       );
       await Future.delayed(const Duration(milliseconds: 1700));
     } finally {
@@ -141,7 +201,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final bool isDarkMode = themeProvider.isDarkMode;
 
-    // Background Colors
     final Color backgroundColor =
         isDarkMode ? AppColors.backgroundDark : Colors.white;
     final Color textColor = isDarkMode ? Colors.white : Colors.black;
@@ -157,162 +216,203 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 24.0, vertical: 20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Registrate aqui",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: textColor,
+                  child: Form(
+                    key: _formKey,
+                    // CAMBIO CLAVE: Usamos la variable de estado para controlar cuándo validar
+                    autovalidateMode: _autoValidateMode,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Registrate aqui",
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 25),
-                      _buildInput(
-                        controller: _nameController,
-                        hint: "Nombre Completo",
-                        icon: Icons.person_outline,
-                        isDarkMode: isDarkMode,
-                      ),
-                      const SizedBox(height: 15),
-                      _buildInput(
-                        controller: _emailController,
-                        hint: "Correo",
-                        icon: Icons.email_outlined,
-                        isDarkMode: isDarkMode,
-                      ),
-                      const SizedBox(height: 15),
-                      _buildInput(
-                        controller: _usernameController,
-                        hint: "Nombre de usuario",
-                        icon: Icons.alternate_email,
-                        isDarkMode: isDarkMode,
-                      ),
-                      const SizedBox(height: 15),
-                      _buildInput(
-                        controller: _passController,
-                        hint: "Contraseña",
-                        icon: Icons.lock_outline,
-                        isDarkMode: isDarkMode,
-                        isPassword: true,
-                        isPasswordVisible: _isPasswordVisible,
-                        onVisibilityToggle: () {
-                          setState(() {
-                            _isPasswordVisible = !_isPasswordVisible;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 15),
-                      _buildInput(
-                        controller: _repeatPassController,
-                        hint: "Repetir Contraseña",
-                        icon: Icons.lock_outline,
-                        isDarkMode: isDarkMode,
-                        isPassword: true,
-                        isPasswordVisible: _isRepeatPasswordVisible,
-                        onVisibilityToggle: () {
-                          setState(() {
-                            _isRepeatPasswordVisible =
-                                !_isRepeatPasswordVisible;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 15),
-                      _buildInput(
-                        controller: _dateController,
-                        hint: "Fecha de nacimiento",
-                        icon: Icons.calendar_today_outlined,
-                        isDarkMode: isDarkMode,
-                        readOnly: true,
-                        onTap: () async {
-                          DateTime? pickedDate = await showDatePicker(
-                            context: context,
-                            initialDate: DateTime.now(),
-                            firstDate: DateTime(1900),
-                            lastDate: DateTime.now(),
-                          );
-                          if (pickedDate != null) {
-                            String formattedDate =
-                                "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+                        const SizedBox(height: 25),
+                        
+                        _buildInput(
+                          controller: _nameController,
+                          hint: "Nombre Completo",
+                          icon: Icons.person_outline,
+                          isDarkMode: isDarkMode,
+                          validator: (val) => (val == null || val.isEmpty) ? 'Campo obligatorio' : null,
+                        ),
+                        const SizedBox(height: 15),
+                        
+                        _buildInput(
+                          controller: _emailController,
+                          hint: "Correo",
+                          icon: Icons.email_outlined,
+                          isDarkMode: isDarkMode,
+                          inputType: TextInputType.emailAddress,
+                          validator: (val) {
+                            if (val == null || val.isEmpty) return 'Campo obligatorio';
+
+                            if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(val)) {
+                              return 'Correo inválido. Ejemplo: usuario@mail.com';
+                            }
+
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 15),
+                        
+                        _buildInput(
+                          controller: _usernameController,
+                          hint: "Nombre de usuario",
+                          icon: Icons.alternate_email,
+                          isDarkMode: isDarkMode,
+                          validator: (val) => (val == null || val.isEmpty) ? 'Campo obligatorio' : null,
+                        ),
+                        const SizedBox(height: 15),
+                        
+                        _buildInput(
+                          controller: _passController,
+                          hint: "Contraseña",
+                          icon: Icons.lock_outline,
+                          isDarkMode: isDarkMode,
+                          isPassword: true,
+                          isPasswordVisible: _isPasswordVisible,
+                          onVisibilityToggle: () {
                             setState(() {
-                              _dateController.text = formattedDate;
+                              _isPasswordVisible = !_isPasswordVisible;
                             });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 15),
-                      _buildInput(
-                        controller: _phoneController,
-                        hint: "Numero de telefono",
-                        icon: Icons.phone_outlined,
-                        isDarkMode: isDarkMode,
-                        inputType: TextInputType.phone,
-                      ),
-                      const SizedBox(height: 15),
-                      _buildDropdown(isDarkMode),
-                      const SizedBox(height: 30),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed:
-                              _isSubmitting ? null : () => _submit(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25),
-                              side: const BorderSide(
-                                  color: Colors.white, width: 1.5),
-                            ),
-                            elevation: 5,
-                          ),
-                          child: _isSubmitting
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2.3,
-                                  ),
-                                )
-                              : const Text(
-                                  "Registrarse",
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold),
-                                ),
+                          },
+                          validator: _validatePass,
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "¿Ya tienes una cuenta? ",
-                            style: TextStyle(
-                              color: isDarkMode
-                                  ? Colors.grey[300]
-                                  : Colors.grey[600],
+                        const SizedBox(height: 15),
+                        
+                        _buildInput(
+                          controller: _repeatPassController,
+                          hint: "Repetir Contraseña",
+                          icon: Icons.lock_outline,
+                          isDarkMode: isDarkMode,
+                          isPassword: true,
+                          isPasswordVisible: _isRepeatPasswordVisible,
+                          onVisibilityToggle: () {
+                            setState(() {
+                              _isRepeatPasswordVisible =
+                                  !_isRepeatPasswordVisible;
+                            });
+                          },
+                          validator: _validateRepeatPass,
+                        ),
+                        const SizedBox(height: 15),
+                        
+                        _buildInput(
+                          controller: _dateController,
+                          hint: "Fecha de nacimiento",
+                          icon: Icons.calendar_today_outlined,
+                          isDarkMode: isDarkMode,
+                          readOnly: true,
+                          validator: _validateDate,
+                          onTap: () async {
+                            DateTime? pickedDate = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)), // Sugerir 18 años atrás
+                              firstDate: DateTime(1900),
+                              lastDate: DateTime.now(),
+                            );
+                            if (pickedDate != null) {
+                              String formattedDate =
+                                  "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+                              setState(() {
+                                _dateController.text = formattedDate;
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 15),
+                        
+                        _buildInput(
+                          controller: _phoneController,
+                          hint: "Numero de telefono",
+                          icon: Icons.phone_outlined,
+                          isDarkMode: isDarkMode,
+                          inputType: TextInputType.number,
+                          // Limitamos a 10 dígitos
+                          inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(10),
+                          ],
+                          validator: _validatePhone,
+                        ),
+                        const SizedBox(height: 15),
+                        
+                        _buildDropdown(isDarkMode),
+                        const SizedBox(height: 30),
+                        
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            // CAMBIO: El botón siempre está habilitado (visual) para que al presionar
+                            // se dispare la validación y se muestren los errores rojos.
+                            // Solo se deshabilita si ya se está enviando (_isSubmitting)
+                            onPressed: _isSubmitting ? null : () => _submit(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              disabledBackgroundColor: isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25),
+                                side: const BorderSide(
+                                    color: Colors.white, width: 1.5),
+                              ),
+                              elevation: 5,
                             ),
+                            child: _isSubmitting
+                                ? const SizedBox(
+                                    height: 22,
+                                    width: 22,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.3,
+                                    ),
+                                  )
+                                : const Text(
+                                    "Registrarse",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white
+                                    ),
+                                  ),
                           ),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.pop(context);
-                            },
-                            child: Text(
-                              "Inicia Sesion",
+                        ),
+
+                        const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "¿Ya tienes una cuenta? ",
                               style: TextStyle(
-                                color: isDarkMode ? Colors.white : Colors.black,
-                                fontWeight: FontWeight.bold,
+                                color: isDarkMode
+                                    ? Colors.grey[300]
+                                    : Colors.grey[600],
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 30),
-                    ],
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.pop(context);
+                              },
+                              child: Text(
+                                "Inicia Sesion",
+                                style: TextStyle(
+                                  color: isDarkMode ? Colors.white : Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 30),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -467,8 +567,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     VoidCallback? onTap,
     VoidCallback? onVisibilityToggle,
     TextInputType inputType = TextInputType.text,
+    String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
   }) {
-    // Dark Mode: Grey fill, White border. Light Mode: White fill, Black border.
     final Color fillColor = isDarkMode ? const Color(0xFF768088) : Colors.white;
     final Color borderColor = isDarkMode ? Colors.black54 : Colors.black;
     final Color iconColor = isDarkMode ? Colors.white : Colors.black;
@@ -485,19 +586,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
           )
         ],
       ),
-      child: TextField(
+      child: TextFormField(
         controller: controller,
         obscureText: isPassword && !isPasswordVisible,
         readOnly: readOnly,
         onTap: onTap,
         keyboardType: inputType,
         style: TextStyle(color: textColor),
+        validator: validator,
+        inputFormatters: inputFormatters,
         decoration: InputDecoration(
           filled: true,
           fillColor: fillColor,
           hintText: hint,
           hintStyle: TextStyle(color: hintColor),
           prefixIcon: Icon(icon, color: iconColor),
+          errorStyle: const TextStyle(
+             color: Colors.redAccent,
+             fontWeight: FontWeight.bold,
+          ),
           suffixIcon: isPassword
               ? IconButton(
                   icon: Icon(
@@ -508,7 +615,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 )
               : null,
           contentPadding: const EdgeInsets.symmetric(vertical: 16),
-          // Borders
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: BorderSide(color: borderColor, width: 1),
@@ -520,6 +626,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: BorderSide(color: borderColor, width: 1.5),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+             borderRadius: BorderRadius.circular(10),
+             borderSide: const BorderSide(color: Colors.red, width: 2),
           ),
         ),
       ),
@@ -569,6 +683,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
             borderRadius: BorderRadius.circular(10),
             borderSide: BorderSide(color: borderColor, width: 1.5),
           ),
+          // Añadimos estilos de error también al dropdown
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+             borderRadius: BorderRadius.circular(10),
+             borderSide: const BorderSide(color: Colors.red, width: 2),
+          ),
+          errorStyle: const TextStyle(
+             color: Colors.redAccent,
+             fontWeight: FontWeight.bold,
+          ),
         ),
         items: [
           DropdownMenuItem(
@@ -585,7 +712,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           setState(() {
             _selectedGender = value;
           });
+          // Si ya se activó la validación, re-validamos el campo al cambiar
+          if (_autoValidateMode == AutovalidateMode.onUserInteraction) {
+            _formKey.currentState?.validate();
+          }
         },
+        validator: (value) => value == null ? 'Selecciona un género' : null,
       ),
     );
   }

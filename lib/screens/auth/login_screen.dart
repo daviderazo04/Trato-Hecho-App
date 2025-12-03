@@ -116,15 +116,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: isDarkMode ? Colors.white : AppColors.primary,
                       ),
                     ),
-                    Positioned(
-                      left: 20,
-                      bottom: 20,
-                      child: Image.network(
-                        'https://cdn-icons-png.flaticon.com/512/2454/2454269.png',
-                        height: 80,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -191,41 +182,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                         ),
                         const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: Checkbox(
-                                value: _rememberMe,
-                                activeColor: AppColors.primary,
-                                side: BorderSide(
-                                  color: isDarkMode ? Colors.grey : Colors.grey,
-                                  width: 2,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                onChanged: (val) {
-                                  setState(() {
-                                    _rememberMe = val ?? false;
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              "Recordarme",
-                              style: TextStyle(
-                                color: isDarkMode
-                                    ? Colors.grey[300]
-                                    : Colors.grey[600],
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 30),
+                        
+                        
 
                         // --- LOGIN BUTTON ---
                         SizedBox(
