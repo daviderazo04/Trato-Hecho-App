@@ -44,6 +44,9 @@ class ChatMessage {
   final int senderId;
   final String senderName;
   final int? serviceId;
+  final bool isPending;
+  final bool isFailed;
+  final String? localId;
 
   ChatMessage({
     required this.msjId,
@@ -52,6 +55,9 @@ class ChatMessage {
     required this.senderId,
     required this.senderName,
     this.serviceId,
+    this.isPending = false,
+    this.isFailed = false,
+    this.localId,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
@@ -65,6 +71,9 @@ class ChatMessage {
       senderId: json['senderId'] ?? 0,
       senderName: json['senderName'] ?? '',
       serviceId: serId,
+      isPending: false,
+      isFailed: false,
+      localId: null,
     );
   }
 }

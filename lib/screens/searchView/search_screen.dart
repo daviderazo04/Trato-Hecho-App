@@ -467,49 +467,249 @@ class _SearchScreenState extends State<SearchScreen> {
     if (_availableCategories.isEmpty) {
       return const SizedBox.shrink();
     }
+    final List<String> previewCategories =
+        _availableCategories.take(6).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _FilterLabel('Categorías', isDark: isDark),
-        const SizedBox(height: 8),
-        // Mostrar categorías en una columna vertical, una por una
-        ...(_availableCategories.map((category) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: SizedBox(
-              width: double.infinity,
-              child: ChoiceChip(
-                label: Text(
-                  category,
-                  style: TextStyle(
-                    color: _selectedCategories.contains(category)
-                        ? AppColors.primary
-                        : AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                labelPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                selected: _selectedCategories.contains(category),
-                onSelected: (_) => _toggleCategory(category),
-                selectedColor: AppColors.secondary.withOpacity(0.18),
-                shape: RoundedRectangleBorder(
+        Row(
+          children: [
+            _FilterLabel('Categorías', isDark: isDark),
+            const SizedBox(width: 8),
+            if (_selectedCategories.isNotEmpty)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: _selectedCategories.contains(category)
-                        ? AppColors.secondary
-                        : AppColors.border,
+                ),
+                child: Text(
+                  '${_selectedCategories.length} seleccionadas',
+                  style: TextStyle(
+                    color: isDark ? Colors.white : AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
                   ),
                 ),
-                backgroundColor: Colors.white,
               ),
+            const Spacer(),
+            TextButton(
+              onPressed: _openCategoriesSheet,
+              child: const Text('Ver todas'),
             ),
-          );
-        }).toList()),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: previewCategories
+              .map((category) => _buildCategoryChip(
+                    label: category,
+                    isSelected: _selectedCategories.contains(category),
+                    isDark: isDark,
+                    onTap: () => _toggleCategory(category),
+                  ))
+              .toList(),
+        ),
       ],
+    );
+  }
+
+  void _openCategoriesSheet() {
+    final Set<String> tempSelected = {..._selectedCategories};
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, modalSetState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.7,
+              minChildSize: 0.45,
+              maxChildSize: 0.95,
+              expand: false,
+              builder: (context, scrollController) {
+                final bool isDark =
+                    Provider.of<ThemeProvider>(context, listen: false)
+                        .isDarkMode;
+                return Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.backgroundDark : Colors.white,
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(22)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.18),
+                        blurRadius: 20,
+                        offset: const Offset(0, -6),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 4,
+                              margin: const EdgeInsets.only(right: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            Text(
+                              'Todas las categorías',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          child: Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: _availableCategories
+                                .map((category) => _buildCategoryChip(
+                                      label: category,
+                                      isSelected:
+                                          tempSelected.contains(category),
+                                      isDark: isDark,
+                                      onTap: () {
+                                        if (tempSelected.contains(category)) {
+                                          tempSelected.remove(category);
+                                        } else {
+                                          tempSelected.add(category);
+                                        }
+                                        modalSetState(() {});
+                                      },
+                                    ))
+                                .toList(),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  tempSelected.clear();
+                                  modalSetState(() {});
+                                  setState(() {
+                                    _selectedCategories.clear();
+                                  });
+                                  _applyFilters();
+                                  Navigator.pop(context);
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                      color: isDark
+                                          ? Colors.white70
+                                          : AppColors.primary,
+                                      width: 1.2),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text('Limpiar'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedCategories = tempSelected;
+                                  });
+                                  _applyFilters();
+                                  Navigator.pop(context);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size.fromHeight(46),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: Text(
+                                  tempSelected.isEmpty
+                                      ? 'Aplicar'
+                                      : 'Aplicar (${tempSelected.length})',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Chip compacto reutilizable para vista previa y modal
+  Widget _buildCategoryChip({
+    required String label,
+    required bool isSelected,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    final Color borderColor =
+        isSelected ? AppColors.secondary : (isDark ? Colors.white24 : AppColors.border);
+    final Color bgColor = isSelected
+        ? AppColors.secondary.withOpacity(0.18)
+        : (isDark ? AppColors.darkButtons : Colors.white);
+    final Color textColor =
+        isSelected ? AppColors.primary : (isDark ? Colors.white : AppColors.textPrimary);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: borderColor),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: textColor,
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
+        ),
+      ),
     );
   }
 

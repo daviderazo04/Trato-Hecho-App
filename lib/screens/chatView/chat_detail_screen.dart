@@ -37,6 +37,7 @@ class ChatDetailScreen extends StatefulWidget {
 class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final ChatService _chatService = ChatService();
   final _textController = TextEditingController();
+  final ScrollController _listController = ScrollController();
 
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
@@ -96,6 +97,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           _isLoading = false;
           _currentServiceId = _currentServiceId ?? firstServiceId;
         });
+        _scrollToBottom();
       }
     } catch (e) {
       print("Error history: $e");
@@ -110,6 +112,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final myUserId = Provider.of<UserProvider>(context, listen: false).userId;
     if (myUserId == null) return;
 
+    final String localId =
+        'local_${DateTime.now().microsecondsSinceEpoch.toString()}';
+    final pendingMessage = ChatMessage(
+      msjId: -1,
+      contenido: text,
+      fechaEnvio: DateTime.now().toIso8601String(),
+      senderId: myUserId,
+      senderName: '',
+      serviceId: _currentServiceId,
+      isPending: true,
+      isFailed: false,
+      localId: localId,
+    );
+
+    setState(() {
+      _messages.add(pendingMessage);
+    });
+    _scrollToBottom();
     _textController.clear();
 
     try {
@@ -122,29 +142,177 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         content: text,
       );
 
-      if (newMessage != null && mounted) {
+      if (!mounted) return;
+
+      if (newMessage != null) {
         setState(() {
-          _messages.add(newMessage);
+          _replaceLocalMessage(localId, newMessage);
         });
 
         if (_currentConId == null && widget.receiverId != null) {
           await Future.delayed(const Duration(milliseconds: 500));
+          if (!mounted) return;
           final newConId = await _chatService.checkConversation(
               myUserId, widget.receiverId!,
               serviceId: widget.serviceId);
           if (newConId != null) {
+            if (!mounted) return;
             setState(() {
               _currentConId = newConId;
             });
           }
         }
+      } else {
+        setState(() {
+          _markLocalFailed(localId);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "No se pudo enviar el mensaje. Comprueba tu conexión.",
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     } catch (e) {
       print("Error sending: $e");
+      if (mounted) {
+        setState(() {
+          _markLocalFailed(localId);
+        });
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Error al enviar mensaje")),
       );
     }
+  }
+
+  void _replaceLocalMessage(String localId, ChatMessage newMessage) {
+    final int index = _messages.indexWhere(
+        (msg) => msg.localId != null && msg.localId == localId);
+    final ChatMessage mergedMessage = ChatMessage(
+      msjId: newMessage.msjId,
+      contenido: newMessage.contenido,
+      fechaEnvio: newMessage.fechaEnvio,
+      senderId: newMessage.senderId,
+      senderName: newMessage.senderName,
+      serviceId: newMessage.serviceId ?? _currentServiceId,
+      isPending: false,
+      isFailed: false,
+      localId: null,
+    );
+
+    if (index >= 0) {
+      _messages[index] = mergedMessage;
+    } else {
+      _messages.add(mergedMessage);
+    }
+    _scrollToBottom();
+  }
+
+  void _markLocalFailed(String localId) {
+    final int index = _messages.indexWhere(
+        (msg) => msg.localId != null && msg.localId == localId);
+    if (index >= 0) {
+      final old = _messages[index];
+      _messages[index] = ChatMessage(
+        msjId: old.msjId,
+        contenido: old.contenido,
+        fechaEnvio: old.fechaEnvio,
+        senderId: old.senderId,
+        senderName: old.senderName,
+        serviceId: old.serviceId,
+        isPending: false,
+        isFailed: true,
+        localId: old.localId,
+      );
+    }
+  }
+
+  Future<void> _retryMessage(ChatMessage message) async {
+    if (message.isPending) return;
+    final myUserId = Provider.of<UserProvider>(context, listen: false).userId;
+    if (myUserId == null) return;
+
+    final String retryLocalId =
+        message.localId ?? 'local_${DateTime.now().microsecondsSinceEpoch}';
+
+    setState(() {
+      final idx = _messages.indexOf(message);
+      if (idx >= 0) {
+        _messages[idx] = ChatMessage(
+          msjId: message.msjId,
+          contenido: message.contenido,
+          fechaEnvio: DateTime.now().toIso8601String(),
+          senderId: message.senderId,
+          senderName: message.senderName,
+          serviceId: message.serviceId,
+          isPending: true,
+          isFailed: false,
+          localId: retryLocalId,
+        );
+      }
+    });
+    _scrollToBottom();
+
+    try {
+      final newMessage = await _chatService.sendMessage(
+        senderId: myUserId,
+        receiverId: widget.receiverId,
+        conId: _currentConId,
+        serviceId: _currentServiceId,
+        content: message.contenido,
+      );
+
+      if (!mounted) return;
+
+      if (newMessage != null) {
+        setState(() {
+          _replaceLocalMessage(retryLocalId, newMessage);
+        });
+      } else {
+        setState(() {
+          _markLocalFailed(retryLocalId);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text("No se pudo enviar el mensaje. Comprueba tu conexión."),
+              backgroundColor: AppColors.error),
+        );
+      }
+    } catch (e) {
+      print("Error retrying: $e");
+      if (mounted) {
+        setState(() {
+          _markLocalFailed(retryLocalId);
+        });
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "No se pudo enviar el mensaje. Comprueba tu conexión.",
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_listController.hasClients) {
+        _listController.animateTo(
+          _listController.position.maxScrollExtent + 80,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   // Helpers de color
@@ -166,6 +334,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   void dispose() {
     _textController.dispose();
+    _listController.dispose();
     super.dispose();
   }
 
@@ -259,11 +428,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : ListView.builder(
+                    controller: _listController,
                     padding: const EdgeInsets.all(16.0),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final message = _messages[index];
                       final bool isMe = message.senderId == myUserId;
+                      final bool isPending = message.isPending;
+                      final bool isFailed = message.isFailed;
+                      final Color statusColor =
+                          isFailed ? Colors.white : (isDarkMode ? Colors.white70 : Colors.black54);
 
                       return Align(
                         alignment:
@@ -273,18 +447,84 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16.0, vertical: 10.0),
                           decoration: BoxDecoration(
-                            color: isMe
-                                ? _bubbleMeColor(isDarkMode)
-                                : _bubbleOtherColor(isDarkMode),
+                            color: isFailed
+                                ? Colors.red.withOpacity(0.75)
+                                : isPending
+                                    ? _bubbleMeColor(isDarkMode)
+                                        .withOpacity(0.7)
+                                    : isMe
+                                        ? _bubbleMeColor(isDarkMode)
+                                        : _bubbleOtherColor(isDarkMode),
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: Text(
-                            message.contenido,
-                            style: TextStyle(
-                              color: isMe
-                                  ? (isDarkMode ? Colors.white : Colors.black87)
-                                  : Colors.white,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: isMe
+                                ? CrossAxisAlignment.end
+                                : CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                message.contenido,
+                                style: TextStyle(
+                                  color: isFailed
+                                      ? Colors.white
+                                      : isMe
+                                          ? (isDarkMode
+                                              ? Colors.white
+                                              : Colors.black87)
+                                          : Colors.white,
+                                ),
+                              ),
+                              if (isPending || isFailed) ...[
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: isMe
+                                      ? MainAxisAlignment.end
+                                      : MainAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      isFailed
+                                          ? Icons.error_outline
+                                          : Icons.schedule,
+                                      size: 14,
+                                      color: statusColor,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isFailed
+                                          ? 'No se pudo enviar'
+                                          : 'Enviando...',
+                                      style: TextStyle(
+                                        color: statusColor,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    if (isFailed) ...[
+                                      const SizedBox(width: 12),
+                                      TextButton(
+                                        onPressed: () => _retryMessage(message),
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 6),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        child: const Text(
+                                          'Reenviar',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       );
