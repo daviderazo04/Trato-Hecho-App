@@ -86,6 +86,39 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
     Navigator.pop(context);
   }
 
+  String? _validateServiceData() {
+    final String title = _titleController.text.trim();
+    final String description = _descriptionController.text.trim();
+    final String priceText = _priceController.text.trim();
+    final double? price = double.tryParse(priceText);
+
+    if (title.isEmpty) {
+      return '⚠️ El título es obligatorio.';
+    }
+    if (title.length < 4) {
+      return '⚠️ El título debe tener al menos 4 caracteres.';
+    }
+    if (price == null) {
+      return '⚠️ Ingresa un precio válido (solo números).';
+    }
+    if (price <= 0) {
+      return '⚠️ El precio debe ser mayor a cero.';
+    }
+    if (_selectedCategoriesObjects.isEmpty) {
+      return '⚠️ Debes seleccionar al menos una categoría.';
+    }
+    if (description.isEmpty) {
+      return '⚠️ La descripción es obligatoria.';
+    }
+    if (description.length < 20) {
+      return '⚠️ La descripción debe tener mínimo 20 caracteres.';
+    }
+    if (description.length > 500) {
+      return '⚠️ La descripción no puede exceder 500 caracteres.';
+    }
+    return null;
+  }
+
   // ============================================================
   // LÓGICA DE API
   // ============================================================
@@ -138,35 +171,26 @@ class _NewServiceScreenState extends State<NewServiceScreen> {
       return;
     }
 
-    final price = double.tryParse(_priceController.text) ?? 0.0;
-
-    if (_titleController.text.isEmpty ||
-        price <= 0 ||
-        _selectedCategoriesObjects.isEmpty) {
-      String message;
-      if (_titleController.text.isEmpty) {
-        message = '⚠️ El título es obligatorio.';
-      } else if (price <= 0) {
-        message = '⚠️ El precio debe ser mayor a cero.';
-      } else if (_selectedCategoriesObjects.isEmpty) {
-        message = '⚠️ Debe seleccionar al menos una categoría.';
-      } else {
-        message = '⚠️ Complete todos los campos.';
-      }
-
+    final String? validationMessage = _validateServiceData();
+    if (validationMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: AppColors.warning),
+        SnackBar(
+          content: Text(validationMessage),
+          backgroundColor: AppColors.warning,
+        ),
       );
       return;
     }
+
+    final double price = double.parse(_priceController.text.trim());
 
     setState(() => _isPublishing = true);
 
     try {
       final serviceDto = {
         "userId": userId,
-        "nombre": _titleController.text,
-        "descripcion": _descriptionController.text,
+        "nombre": _titleController.text.trim(),
+        "descripcion": _descriptionController.text.trim(),
         "precio": price,
         "categoriasIds": _selectedCategoriesObjects.map((c) => c.id).toList(),
       };
