@@ -11,6 +11,7 @@ import '../../config/theme_provider.dart';
 import '../../config/user_provider.dart';
 import '../../services/favorites_service.dart';
 import '../../services/my_services_service.dart';
+import '../../services/services_cache.dart';
 
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({super.key});
@@ -34,6 +35,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   bool _isCategoryForward = true;
   final FavoritesService _favoritesService = FavoritesService();
   final MyServicesService _myServicesService = MyServicesService();
+  final ServicesCache _servicesCache = ServicesCache();
   final ScrollController _scrollController = ScrollController();
 
   final List<CategoryItemData> _categories = const [
@@ -103,10 +105,22 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       _isLoadingMore = false;
     });
 
-    try {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final userId = userProvider.userId;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.userId;
 
+    // Try to hydrate quickly from cache while the network call runs
+    final cachedRaw = await _servicesCache.loadRaw(userId);
+    final cachedServices =
+        cachedRaw.map((item) => ServiceCardData.fromJson(item)).toList();
+    if (mounted && cachedServices.isNotEmpty) {
+      setState(() {
+        _services = cachedServices;
+        _filterServices();
+        _isLoading = false;
+      });
+    }
+
+    try {
       String urlString = ApiConfig.servicios;
       if (userId != null) {
         urlString += '?userId=$userId';
@@ -137,18 +151,27 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           _services = services;
           _filterServices();
         });
+
+        // Cache fresh data for faster subsequent loads
+        await _servicesCache
+            .saveRaw(services.map((s) => s.toJson()).toList(), userId);
       } else {
         if (!mounted) return;
         setState(() {
-          _error =
-              'Error ${response.statusCode}: No se pudieron cargar los servicios';
+          if (_services.isEmpty) {
+            _error =
+                'Error ${response.statusCode}: No se pudieron cargar los servicios';
+          }
         });
       }
     } catch (e) {
       print("Error fetching services: $e");
       if (!mounted) return;
       setState(() {
-        _error = 'Error de conexión. Verifica que el servidor esté corriendo.';
+        if (_services.isEmpty) {
+          _error =
+              'Error de conexión. Verifica que el servidor esté corriendo.';
+        }
       });
     } finally {
       if (mounted) {
@@ -1213,5 +1236,21 @@ class ServiceCardData {
       description: json['descripcion'] as String? ?? '',
       esFavorito: json['esFavorito'] as bool? ?? false,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'usuarioId': providerId,
+      'multimediaUrls': imageUrls,
+      'nombre': title,
+      'usuarioNombre': providerName,
+      'promedioCalificacion': rating,
+      'totalCalificaciones': totalRatings,
+      'categorias': categories,
+      'precio': price,
+      'descripcion': description,
+      'esFavorito': esFavorito,
+    };
   }
 }

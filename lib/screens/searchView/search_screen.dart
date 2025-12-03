@@ -10,6 +10,7 @@ import '../../config/user_provider.dart';
 import '../../config/theme_provider.dart';
 import '../../services/favorites_service.dart';
 import '../../services/my_services_service.dart';
+import '../../services/services_cache.dart';
 import '../homeView/home_screen.dart' show ServiceCardData;
 import '../homeView/service_detail_screen.dart';
 
@@ -37,6 +38,7 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _queryController = TextEditingController();
   final MyServicesService _myServicesService = MyServicesService();
+  final ServicesCache _servicesCache = ServicesCache();
 
   List<ServiceCardData> _services = [];
   List<ServiceCardData> _filtered = [];
@@ -77,10 +79,33 @@ class _SearchScreenState extends State<SearchScreen> {
       _error = null;
     });
 
-    try {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final userId = userProvider.userId;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.userId;
 
+    // Serve cached data first to speed up screen render
+    final cachedRaw = await _servicesCache.loadRaw(userId);
+    final cachedServices =
+        cachedRaw.map((item) => ServiceCardData.fromJson(item)).toList();
+    if (mounted && cachedServices.isNotEmpty) {
+      setState(() {
+        _services = cachedServices;
+        _favoriteServiceIds
+          ..clear()
+          ..addAll(
+            cachedServices
+                .where((s) => s.id != null && s.esFavorito)
+                .map((s) => s.id!)
+                .toSet(),
+          );
+        _minPrice = 0;
+        _maxPrice = 1000;
+        _priceRange = const RangeValues(0, 1000);
+        _isLoading = false;
+      });
+      _applyFilters();
+    }
+
+    try {
       String urlString = ApiConfig.servicios;
       if (userId != null) {
         urlString += '?userId=$userId';
@@ -119,15 +144,22 @@ class _SearchScreenState extends State<SearchScreen> {
           _priceRange = const RangeValues(0, 1000);
         });
         _applyFilters();
+
+        await _servicesCache
+            .saveRaw(services.map((s) => s.toJson()).toList(), userId);
       } else {
         setState(() {
-          _error =
-              'No se pudieron cargar los servicios (${response.statusCode})';
+          if (_services.isEmpty) {
+            _error =
+                'No se pudieron cargar los servicios (${response.statusCode})';
+          }
         });
       }
     } catch (e) {
       setState(() {
-        _error = 'Error de conexión. Inténtalo de nuevo.';
+        if (_services.isEmpty) {
+          _error = 'Error de conexión. Inténtalo de nuevo.';
+        }
       });
     } finally {
       if (mounted) {

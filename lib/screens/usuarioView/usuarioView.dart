@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert'; // Import for JSON
 import 'package:http/http.dart' as http; // Import for API calls
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../config/theme_provider.dart';
 import '../../config/user_provider.dart';
@@ -41,12 +42,7 @@ class _UsuarioViewState extends State<UsuarioView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      // If initially in supplier mode, load everything
-      if (userProvider.isSupplierMode) {
-        _loadMyServices();
-        _fetchSupplierStats();
-      }
+      _restoreSupplierMode();
     });
   }
 
@@ -75,6 +71,22 @@ class _UsuarioViewState extends State<UsuarioView> {
         ),
       ),
     );
+  }
+
+  Future<void> _restoreSupplierMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    final savedMode = prefs.getBool('isSupplierMode') ?? false;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    if (userProvider.isSupplierMode != savedMode) {
+      userProvider.setSupplierMode(savedMode);
+    }
+
+    if (savedMode) {
+      _loadMyServices();
+      _fetchSupplierStats();
+    }
   }
 
   // --- API 1: CARGAR SERVICIOS ---
