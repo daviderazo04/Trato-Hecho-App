@@ -11,7 +11,9 @@ import '../../config/api_config.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({Key? key}) : super(key: key);
+  final VoidCallback? onAuthenticated;
+
+  const RegisterScreen({Key? key, this.onAuthenticated}) : super(key: key);
 
   @override
   _RegisterScreenState createState() => _RegisterScreenState();
@@ -160,7 +162,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            MaterialPageRoute(
+                builder: (_) =>
+                    LoginScreen(onAuthenticated: widget.onAuthenticated)),
           );
         }
       } else {

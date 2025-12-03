@@ -9,7 +9,9 @@ import '../../main.dart'; // Importamos para navegar a MainNavigator
 import '../auth/signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  final VoidCallback? onAuthenticated;
+
+  const LoginScreen({Key? key, this.onAuthenticated}) : super(key: key);
 
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -60,13 +62,19 @@ class _LoginScreenState extends State<LoginScreen> {
           _showWelcomeOverlay = true;
         });
 
-        await Future.delayed(const Duration(milliseconds: 2500));
+        final overlayDelayMs = widget.onAuthenticated != null ? 800 : 2500;
+        await Future.delayed(Duration(milliseconds: overlayDelayMs));
 
         if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const MainNavigator()),
-          );
+          if (widget.onAuthenticated != null) {
+            Navigator.of(context).pop(); // cerrar login y volver a la vista previa
+            widget.onAuthenticated!.call();
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MainNavigator()),
+            );
+          }
         }
       }
     } else {
@@ -240,8 +248,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                      builder: (context) =>
-                                          const RegisterScreen()),
+                                      builder: (context) => RegisterScreen(
+                                            onAuthenticated:
+                                                widget.onAuthenticated,
+                                          )),
                                 );
                               },
                               child: Text(

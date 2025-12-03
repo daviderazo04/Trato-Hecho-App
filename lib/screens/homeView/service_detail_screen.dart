@@ -221,16 +221,65 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   }
 
   bool _redirectToLoginIfNeeded(
-      UserProvider userProvider, ThemeProvider themeProvider) {
+      UserProvider userProvider, ThemeProvider themeProvider,
+      {VoidCallback? onAuthenticated}) {
     final bool isLoggedIn =
         userProvider.userId != null && themeProvider.isLoggedIn;
     if (!isLoggedIn) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(
+          builder: (_) => LoginScreen(onAuthenticated: onAuthenticated),
+        ),
       );
     }
     return isLoggedIn;
+  }
+
+  void _openChat() {
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatDetailScreen(
+          receiverId: widget.data.providerId,
+          serviceId: widget.data.id,
+          chatName: widget.data.title,
+          chatSubtitle: widget.data.providerName,
+          rating: widget.data.rating.toStringAsFixed(1),
+          serviceImage: widget.data.imageUrls.isNotEmpty
+              ? widget.data.imageUrls.first
+              : null,
+        ),
+      ),
+    );
+  }
+
+  void _openHireFlow() {
+    if (!mounted) return;
+    final serviceId = widget.data.id;
+    if (serviceId == null || serviceId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se puede contratar: falta el ID del servicio.'),
+        ),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ContratarServicioScreen(
+          serviceId: serviceId,
+          serviceName: widget.data.title,
+          serviceImage: widget.data.imageUrls.isNotEmpty
+              ? widget.data.imageUrls.first
+              : null,
+          fallbackPrice: widget.data.price,
+        ),
+      ),
+    );
   }
 
   @override
@@ -357,25 +406,12 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          if (!_redirectToLoginIfNeeded(
-                              userProvider, themeProvider)) {
+                          if (!_redirectToLoginIfNeeded(userProvider,
+                              themeProvider,
+                              onAuthenticated: _openChat)) {
                             return;
                           }
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ChatDetailScreen(
-                                receiverId: widget.data.providerId,
-                                serviceId: widget.data.id,
-                                chatName: widget.data.title,
-                                chatSubtitle: widget.data.providerName,
-                                rating: widget.data.rating.toStringAsFixed(1),
-                                serviceImage: widget.data.imageUrls.isNotEmpty
-                                    ? widget.data.imageUrls.first
-                                    : null,
-                              ),
-                            ),
-                          );
+                          _openChat();
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
@@ -405,33 +441,12 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          if (!_redirectToLoginIfNeeded(
-                              userProvider, themeProvider)) {
+                          if (!_redirectToLoginIfNeeded(userProvider,
+                              themeProvider,
+                              onAuthenticated: _openHireFlow)) {
                             return;
                           }
-                          final serviceId = widget.data.id;
-                          if (serviceId == null || serviceId <= 0) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    'No se puede contratar: falta el ID del servicio.'),
-                              ),
-                            );
-                            return;
-                          }
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ContratarServicioScreen(
-                                serviceId: serviceId,
-                                serviceName: widget.data.title,
-                                serviceImage: widget.data.imageUrls.isNotEmpty
-                                    ? widget.data.imageUrls.first
-                                    : null,
-                                fallbackPrice: widget.data.price,
-                              ),
-                            ),
-                          );
+                          _openHireFlow();
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.notificacion,
