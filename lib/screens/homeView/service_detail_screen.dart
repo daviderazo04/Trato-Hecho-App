@@ -15,8 +15,8 @@ import '../chatView/contratar_servicio_screen.dart';
 import 'home_screen.dart' show ServiceCardData;
 
 // --- CONFIGURACIÓN DE LA API ---
-final String BASE_API_URL = dotenv.env['API_BASE_URL'] ??
-    'https://tratohecho-api-511660074294.us-central1.run.app/api';
+final String BASE_API_URL =
+    dotenv.env['API_BASE_URL'] ?? 'http://localhost:8080/api';
 const String DELETE_SERVICE_ENDPOINT =
     "/servicios"; // Se complementará con el ID y query param
 
@@ -406,8 +406,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          if (!_redirectToLoginIfNeeded(userProvider,
-                              themeProvider,
+                          if (!_redirectToLoginIfNeeded(
+                              userProvider, themeProvider,
                               onAuthenticated: _openChat)) {
                             return;
                           }
@@ -441,8 +441,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          if (!_redirectToLoginIfNeeded(userProvider,
-                              themeProvider,
+                          if (!_redirectToLoginIfNeeded(
+                              userProvider, themeProvider,
                               onAuthenticated: _openHireFlow)) {
                             return;
                           }

@@ -13,9 +13,9 @@ class ApiConfig {
 
     // Fallback seguro
     if (Platform.isAndroid) {
-      return 'https://tratohecho-api-511660074294.us-central1.run.app/api';
+      return 'http://localhost:8080/api';
     } else {
-      return 'https://tratohecho-api-511660074294.us-central1.run.app/api';
+      return 'http://localhost:8080/api';
     }
   }
 
@@ -34,4 +34,5 @@ class ApiConfig {
   static String get calificarServicio => '$baseUrl/calificaciones/calificar';
   static String misServicios(int userId) =>
       '$baseUrl/servicios/mis-servicios/$userId';
+  static String usuario(int userId) => '$baseUrl/auth/usuario/$userId';
 }

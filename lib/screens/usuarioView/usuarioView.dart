@@ -123,8 +123,7 @@ class _UsuarioViewState extends State<UsuarioView> {
     });
 
     try {
-      final url = Uri.parse(
-          'https://tratohecho-api-511660074294.us-central1.run.app/api/estadisticas/$userId');
+      final url = Uri.parse('http://localhost:8080/api/estadisticas/$userId');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -484,6 +483,19 @@ class _UsuarioViewState extends State<UsuarioView> {
                 // --- 6. CONFIGURATION SECTION ---
                 _buildSectionTitle('Configuración', isDarkMode),
                 const SizedBox(height: 10),
+                _buildMenuItem(
+                  icon: Icons.person_outline,
+                  text: 'Editar Perfil',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const EditProfileScreen(),
+                      ),
+                    );
+                  },
+                  isDarkMode: isDarkMode,
+                ),
                 // --- GLOBAL DARK MODE SWITCH ---
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 14.0),

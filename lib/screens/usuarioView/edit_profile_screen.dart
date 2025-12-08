@@ -1,8 +1,12 @@
+import 'dart:convert';
 import 'dart:io'; // 1. Import needed for File
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
 import '../../config/theme_provider.dart';
 import '../../config/appColors.dart';
+import '../../config/user_provider.dart';
+import '../../config/api_config.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({Key? key}) : super(key: key);
@@ -22,15 +26,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   // 2. Variable to hold the new selected image locally
   File? _selectedImage;
+  bool _prefilledFromUser = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _nombreCompletoController = TextEditingController(text: "Pedro Salas");
-    _correoController = TextEditingController(text: "pedro.salas@mail.com");
-    _telefonoController = TextEditingController(text: "0991234567");
-    _usuarioController = TextEditingController(text: "@pedritoS81");
-    _fechaController = TextEditingController(text: "1990-01-01");
+    _nombreCompletoController = TextEditingController();
+    _correoController = TextEditingController();
+    _telefonoController = TextEditingController();
+    _usuarioController = TextEditingController();
+    _fechaController = TextEditingController();
   }
 
   @override
@@ -44,8 +50,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _prefillFromUser(Provider.of<UserProvider>(context));
+  }
+
+  @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final userProvider = Provider.of<UserProvider>(context);
     final bool isDarkMode = themeProvider.isDarkMode;
     final Color backgroundColor =
         isDarkMode ? AppColors.backgroundDark : AppColors.backgroundLight;
@@ -66,7 +79,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(height: 20),
 
                   // --- Profile Section (Interactive) ---
-                  _buildProfileSection(context, isDarkMode, textColor),
+                  _buildProfileSection(
+                    context,
+                    isDarkMode,
+                    textColor,
+                    userProvider,
+                  ),
 
                   const SizedBox(height: 30),
 
@@ -142,9 +160,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           children: [
                             Expanded(
                               child: ElevatedButton(
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                },
+                                onPressed: _isSaving
+                                    ? null
+                                    : () => _saveProfile(userProvider),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary,
                                   foregroundColor: Colors.white,
@@ -155,12 +173,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   ),
                                   elevation: 2,
                                 ),
-                                child: const Text(
-                                  "Guardar Cambios",
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold),
-                                ),
+                                child: _isSaving
+                                    ? const SizedBox(
+                                        height: 22,
+                                        width: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text(
+                                        "Guardar Cambios",
+                                        style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold),
+                                      ),
                               ),
                             ),
                             const SizedBox(width: 15),
@@ -201,6 +228,121 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   // --- WIDGETS ---
+  void _prefillFromUser(UserProvider userProvider) {
+    if (_prefilledFromUser) return;
+
+    final hasData = userProvider.userId != null ||
+        userProvider.userName != null ||
+        userProvider.userEmail != null ||
+        userProvider.userPhone != null ||
+        userProvider.userUsername != null ||
+        userProvider.userBirthdate != null ||
+        userProvider.userGender != null;
+
+    if (!hasData) return;
+
+    _nombreCompletoController.text =
+        userProvider.userName ?? _nombreCompletoController.text;
+    _correoController.text =
+        userProvider.userEmail ?? _correoController.text;
+    _telefonoController.text =
+        userProvider.userPhone ?? _telefonoController.text;
+    _usuarioController.text =
+        userProvider.userUsername ?? _usuarioController.text;
+    _fechaController.text =
+        userProvider.userBirthdate ?? _fechaController.text;
+    _generoValue =
+        _normalizeGender(userProvider.userGender) ?? _generoValue;
+
+    _prefilledFromUser = true;
+  }
+
+  Future<void> _saveProfile(UserProvider userProvider) async {
+    final userId = userProvider.userId;
+    if (userId == null) {
+      _showMessage('Inicia sesión para actualizar tu perfil.', isError: true);
+      return;
+    }
+
+    final String genero = (_generoValue ?? '').toUpperCase();
+    final Map<String, String> body = {};
+    void addField(String key, String value) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty) body[key] = trimmed;
+    }
+
+    addField('nombreCompleto', _nombreCompletoController.text);
+    addField('correo', _correoController.text);
+    addField('fechaNacimiento', _fechaController.text);
+    addField('telefono', _telefonoController.text);
+    addField('nombreUsuario', _usuarioController.text);
+    if (genero.isNotEmpty) body['genero'] = genero;
+    if (body.isEmpty) {
+      _showMessage('Ingresa datos para actualizar.', isError: true);
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final uri = Uri.parse(ApiConfig.usuario(userId));
+      final request = http.MultipartRequest('PUT', uri);
+      request.headers['Accept'] = 'application/json';
+      request.fields['usuario'] = jsonEncode(body);
+
+      if (_selectedImage != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath('foto', _selectedImage!.path),
+        );
+      }
+
+      final streamed = await request.send();
+      final respBody = await streamed.stream.bytesToString();
+
+      if (!mounted) return;
+      if (streamed.statusCode == 200 || streamed.statusCode == 201) {
+        await userProvider.updateUserData(
+          nombreCompleto: body['nombreCompleto'],
+          correo: body['correo'],
+          telefono: body['telefono'],
+          nombreUsuario: body['nombreUsuario'],
+          fechaNacimiento: body['fechaNacimiento'],
+          genero: body['genero'],
+        );
+        _showMessage('Perfil actualizado correctamente.');
+        Navigator.pop(context);
+      } else {
+        final errorDetail =
+            respBody.isNotEmpty ? ': $respBody' : '';
+        _showMessage(
+          'Error al actualizar (código ${streamed.statusCode})$errorDetail',
+          isError: true,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Error de conexión: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.error : AppColors.primary,
+      ),
+    );
+  }
+
+  String? _normalizeGender(String? raw) {
+    if (raw == null) return null;
+    final value = raw.toLowerCase();
+    if (value.startsWith('m')) return 'm';
+    if (value.startsWith('f')) return 'f';
+    if (value.startsWith('o')) return 'o';
+    return raw;
+  }
 
   Widget _buildCustomHeader(BuildContext context, Color textColor) {
     return Container(
@@ -250,15 +392,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   // 4. Updated Profile Section with Clickable Pencil
   Widget _buildProfileSection(
-      BuildContext context, bool isDarkMode, Color textColor) {
+      BuildContext context,
+      bool isDarkMode,
+      Color textColor,
+      UserProvider userProvider) {
     // Logic to determine which image to show
     ImageProvider? imageProvider;
     if (_selectedImage != null) {
       imageProvider = FileImage(_selectedImage!);
+    } else if (userProvider.userPhotoUrl != null &&
+        userProvider.userPhotoUrl!.isNotEmpty) {
+      imageProvider = NetworkImage(userProvider.userPhotoUrl!);
     } else {
       imageProvider = const NetworkImage(
-          'https://www.jreventos.com.ar/uploads/servicio-imagen/big/af332f5af35068cd6a8935e65c7f0a5c.jpeg');
+        'https://www.jreventos.com.ar/uploads/servicio-imagen/big/af332f5af35068cd6a8935e65c7f0a5c.jpeg',
+      );
     }
+
+    final displayName = userProvider.userName?.isNotEmpty == true
+        ? userProvider.userName!
+        : 'Usuario';
+    final rawUsername = userProvider.userUsername;
+    final displaySubtitle = userProvider.userEmail ??
+        ((rawUsername != null && rawUsername.isNotEmpty)
+            ? (rawUsername.startsWith('@') ? rawUsername : '@$rawUsername')
+            : 'Quito, Ecuador');
 
     return Column(
       children: [
@@ -303,7 +461,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Pedro Salas',
+          displayName,
           style: TextStyle(
             color: textColor,
             fontSize: 22,
@@ -312,7 +470,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Quito, Ecuador',
+          displaySubtitle,
           style: TextStyle(
             color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
             fontSize: 14,
