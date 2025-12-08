@@ -483,6 +483,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   // --- 5. NEW IMAGE PICKER MODAL ---
 // --- 5. NEW IMAGE PICKER MODAL (FIXED OVERFLOW) ---
   void _showImagePickerOptions(BuildContext context, bool isDarkMode) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final ImageProvider fallbackImage = const NetworkImage(
+      'https://www.jreventos.com.ar/uploads/servicio-imagen/big/af332f5af35068cd6a8935e65c7f0a5c.jpeg',
+    );
+    final ImageProvider oldImage = (userProvider.userPhotoUrl?.isNotEmpty ==
+            true)
+        ? NetworkImage(userProvider.userPhotoUrl!)
+        : fallbackImage;
+    final ImageProvider? newImage =
+        _selectedImage != null ? FileImage(_selectedImage!) : null;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: isDarkMode ? AppColors.backgroundDark : Colors.white,
@@ -521,15 +532,50 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Current Image Preview
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: Colors.grey,
-                  backgroundImage: _selectedImage != null
-                      ? FileImage(_selectedImage!)
-                      : const NetworkImage(
-                              'https://www.jreventos.com.ar/uploads/servicio-imagen/big/af332f5af35068cd6a8935e65c7f0a5c.jpeg')
-                          as ImageProvider,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Column(
+                      children: [
+                        Text(
+                          "Foto anterior",
+                          style: TextStyle(
+                            color: isDarkMode ? Colors.white : Colors.black,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Colors.grey,
+                          backgroundImage: oldImage,
+                        ),
+                      ],
+                    ),
+                    Column(
+                      children: [
+                        Text(
+                          "Foto nueva",
+                          style: TextStyle(
+                            color: isDarkMode ? Colors.white : Colors.black,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Colors.grey[300],
+                          backgroundImage: newImage,
+                          child: newImage == null
+                              ? Icon(
+                                  Icons.add_a_photo_outlined,
+                                  color: isDarkMode ? Colors.white : Colors.black54,
+                                )
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
 
                 const SizedBox(height: 30),

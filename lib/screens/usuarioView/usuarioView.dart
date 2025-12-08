@@ -13,6 +13,7 @@ import '../usuarioView/recent_deals_screen.dart';
 import '../usuarioView/favorites_screen.dart';
 import '../proveedorView/new_service_screen.dart';
 import 'faq_screen.dart';
+import 'change_password_screen.dart';
 import '../../services/my_services_service.dart';
 import '../homeView/home_screen.dart' show ServiceCardData;
 import '../homeView/service_detail_screen.dart';
@@ -589,6 +590,20 @@ class _UsuarioViewState extends State<UsuarioView> {
                 ),
 
                 // --- LOGOUT BUTTON ---
+                _buildMenuItem(
+                  icon: Icons.lock_reset,
+                  text: 'Cambiar Contraseña',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ChangePasswordScreen(),
+                      ),
+                    );
+                  },
+                  showArrow: true,
+                  isDarkMode: isDarkMode,
+                ),
                 _buildMenuItem(
                   icon: Icons.logout,
                   text: 'Cerrar Sesion',

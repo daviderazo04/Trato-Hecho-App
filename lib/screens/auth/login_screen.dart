@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/theme_provider.dart';
 import '../../config/user_provider.dart'; // --- IMPORTANTE ---
 import '../../config/appColors.dart';
@@ -24,9 +26,14 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passController = TextEditingController();
   bool _showWelcomeOverlay = false;
   String? _welcomeMessage;
+  final LocalAuthentication _localAuth = LocalAuthentication();
+  bool _biometricAvailable = false;
+  bool _hasStoredBiometricCreds = false;
+  bool _biometricPreference = false;
+  bool _isBiometricBusy = false;
 
   // Función para manejar el login
-  void _handleLogin() async {
+  void _handleLogin({String? overrideUsername, String? overridePassword, bool fromBiometric = false}) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final themeProvider = Provider.of<ThemeProvider>(context,
         listen: false); // Para mantener tu lógica de theme
@@ -35,8 +42,11 @@ class _LoginScreenState extends State<LoginScreen> {
       _welcomeMessage = null;
     });
 
+    final username = overrideUsername ?? _userController.text.trim();
+    final password = overridePassword ?? _passController.text.trim();
+
     // Validar campos vacíos
-    if (_userController.text.isEmpty || _passController.text.isEmpty) {
+    if (username.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Por favor llena todos los campos")),
       );
@@ -45,18 +55,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // Llamar a la API a través del Provider
     final result = await userProvider.login(
-      _userController.text.trim(),
-      _passController.text.trim(),
+      username,
+      password,
     );
 
     if (result['success']) {
+      if (_biometricAvailable && _biometricPreference) {
+        _saveBiometricCredentials(username, password);
+      }
+
       // 1. Actualizar estado de tema (como tenías antes)
       themeProvider.login();
 
       // 2. Mostrar animación de bienvenida antes de navegar
       if (mounted) {
-        final String name =
-            userProvider.userName ?? _userController.text.trim();
+        final String name = userProvider.userName ?? username;
         setState(() {
           _welcomeMessage = 'Bienvenido, $name';
           _showWelcomeOverlay = true;
@@ -86,6 +99,114 @@ class _LoginScreenState extends State<LoginScreen> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initBiometrics();
+  }
+
+  Future<void> _initBiometrics() async {
+    try {
+      final supported = await _localAuth.isDeviceSupported();
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final prefs = await SharedPreferences.getInstance();
+      final hasUser = prefs.containsKey('biometricUsername');
+      final hasPass = prefs.containsKey('biometricPassword');
+      final pref = prefs.getBool('biometricEnabled') ?? false;
+
+      if (mounted) {
+        setState(() {
+          _biometricAvailable = supported && canCheck;
+          _hasStoredBiometricCreds = hasUser && hasPass;
+          _biometricPreference = pref && _biometricAvailable;
+        });
+      }
+    } catch (e) {
+      // Ignorar errores de biometría y no bloquear login normal
+    }
+  }
+
+  Future<void> _saveBiometricCredentials(String username, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('biometricUsername', username);
+    await prefs.setString('biometricPassword', password);
+    await prefs.setBool('biometricEnabled', true);
+    if (mounted) {
+      setState(() {
+        _hasStoredBiometricCreds = true;
+        _biometricPreference = true;
+      });
+    }
+  }
+
+  Future<void> _clearBiometricCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('biometricUsername');
+    await prefs.remove('biometricPassword');
+    await prefs.setBool('biometricEnabled', false);
+    if (mounted) {
+      setState(() {
+        _hasStoredBiometricCreds = false;
+        _biometricPreference = false;
+      });
+    }
+  }
+
+  Future<void> _handleBiometricLogin() async {
+    if (!_biometricAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Tu dispositivo no admite biometría.")),
+      );
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final savedUser = prefs.getString('biometricUsername');
+    final savedPass = prefs.getString('biometricPassword');
+    if (savedUser == null || savedPass == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                "Primero inicia sesión con usuario/contraseña y activa biometría.")),
+      );
+      return;
+    }
+
+    setState(() => _isBiometricBusy = true);
+    try {
+      final didAuth = await _localAuth.authenticate(
+        localizedReason: 'Usa Face ID / huella para iniciar sesión',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+
+      if (!didAuth) {
+        if (mounted) {
+          setState(() => _isBiometricBusy = false);
+        }
+        return;
+      }
+
+      // Reutilizamos el mismo flujo de login
+      _handleLogin(
+        overrideUsername: savedUser,
+        overridePassword: savedPass,
+        fromBiometric: true,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo usar biometría: $e'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isBiometricBusy = false);
       }
     }
   }
@@ -232,6 +353,75 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
+                        if (_biometricAvailable) ...[
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: _biometricPreference,
+                                onChanged: (val) {
+                                  if (val == null) return;
+                                  if (val) {
+                                    setState(() {
+                                      _biometricPreference = true;
+                                    });
+                                  } else {
+                                    _clearBiometricCredentials();
+                                  }
+                                  SharedPreferences.getInstance().then((prefs) {
+                                    prefs.setBool('biometricEnabled', val);
+                                  });
+                                },
+                              ),
+                              Expanded(
+                                child: Text(
+                                  "Recordar datos para Face ID / huella en este dispositivo",
+                                  style: TextStyle(
+                                    color: isDarkMode
+                                        ? Colors.white
+                                        : Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: (!_hasStoredBiometricCreds ||
+                                      userProvider.isLoading ||
+                                      _isBiometricBusy)
+                                  ? null
+                                  : _handleBiometricLogin,
+                              icon: _isBiometricBusy
+                                  ? const SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.fingerprint),
+                              label: Text(
+                                _hasStoredBiometricCreds
+                                    ? "Iniciar con Face ID / Huella"
+                                    : "Activa biometría tras tu próximo login",
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: isDarkMode
+                                    ? Colors.white
+                                    : AppColors.primary,
+                                side: BorderSide(
+                                    color: isDarkMode
+                                        ? Colors.white54
+                                        : AppColors.primary),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
