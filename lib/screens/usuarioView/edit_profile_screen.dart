@@ -3,6 +3,7 @@ import 'dart:io'; // 1. Import needed for File
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import '../../config/theme_provider.dart';
 import '../../config/appColors.dart';
 import '../../config/user_provider.dart';
@@ -308,6 +309,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           fechaNacimiento: body['fechaNacimiento'],
           genero: body['genero'],
         );
+        await userProvider.refreshUserFromApi();
+        if (mounted) {
+          setState(() {
+            // Clear local selection after successful upload so avatar uses refreshed URL
+            _selectedImage = null;
+          });
+        }
         _showMessage('Perfil actualizado correctamente.');
         Navigator.pop(context);
       } else {
@@ -342,6 +350,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (value.startsWith('f')) return 'f';
     if (value.startsWith('o')) return 'o';
     return raw;
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+      if (picked == null) return;
+      setState(() {
+        _selectedImage = File(picked.path);
+      });
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      _showMessage('No se pudo seleccionar la imagen: $e', isError: true);
+    }
   }
 
   Widget _buildCustomHeader(BuildContext context, Color textColor) {
@@ -588,18 +616,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         icon: Icons.camera_alt_outlined,
                         label: "Cámara",
                         isDarkMode: isDarkMode,
-                        onTap: () {
-                          // TODO: Implement Camera
-                          Navigator.pop(context);
-                        }),
+                        onTap: () => _pickImage(ImageSource.camera)),
                     _buildImageOption(
                         icon: Icons.photo_library_outlined,
                         label: "Galería",
                         isDarkMode: isDarkMode,
-                        onTap: () {
-                          // TODO: Implement Gallery
-                          Navigator.pop(context);
-                        }),
+                        onTap: () => _pickImage(ImageSource.gallery)),
                   ],
                 ),
                 const SizedBox(height: 10), // Extra bottom padding

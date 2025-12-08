@@ -230,4 +230,75 @@ class UserProvider with ChangeNotifier {
 
     notifyListeners();
   }
+
+  // --- REFRESH USER DATA FROM API ---
+  Future<void> refreshUserFromApi() async {
+    final id = _userId;
+    if (id == null) return;
+    try {
+      final response = await http.get(Uri.parse(ApiConfig.usuario(id)));
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data =
+            jsonDecode(utf8.decode(response.bodyBytes));
+        final usuarioJson = data['usuario'] ?? data;
+
+        _userId = usuarioJson['userId'] ?? usuarioJson['id'] ?? _userId;
+        _userName =
+            usuarioJson['userNombreCompleto'] ?? usuarioJson['nombreCompleto'];
+        _userRole = usuarioJson['userRol'] ?? usuarioJson['rol'] ?? _userRole;
+        _userPhotoUrl =
+            usuarioJson['userFotoPerfil'] ?? usuarioJson['foto'] ?? _userPhotoUrl;
+        _userEmail = usuarioJson['userCorreo'] ?? usuarioJson['correo'];
+        _userPhone = usuarioJson['userTelefono'] ?? usuarioJson['telefono'];
+        _userUsername =
+            usuarioJson['userNombreUsuario'] ?? usuarioJson['nombreUsuario'];
+        _userBirthdate = usuarioJson['userFechaNacimiento'] ??
+            usuarioJson['fechaNacimiento'];
+        _userGender = usuarioJson['userGenero'] ?? usuarioJson['genero'];
+
+        final prefs = await SharedPreferences.getInstance();
+        if (_userId != null) await prefs.setInt('userId', _userId!);
+        if (_userName != null) {
+          await prefs.setString('userName', _userName!);
+        }
+        if (_userRole != null) {
+          await prefs.setString('userRole', _userRole!);
+        }
+        if (_userPhotoUrl != null) {
+          await prefs.setString('userPhotoUrl', _userPhotoUrl!);
+        } else {
+          await prefs.remove('userPhotoUrl');
+        }
+        if (_userEmail != null) {
+          await prefs.setString('userEmail', _userEmail!);
+        } else {
+          await prefs.remove('userEmail');
+        }
+        if (_userPhone != null) {
+          await prefs.setString('userPhone', _userPhone!);
+        } else {
+          await prefs.remove('userPhone');
+        }
+        if (_userUsername != null) {
+          await prefs.setString('userUsername', _userUsername!);
+        } else {
+          await prefs.remove('userUsername');
+        }
+        if (_userBirthdate != null) {
+          await prefs.setString('userBirthdate', _userBirthdate!);
+        } else {
+          await prefs.remove('userBirthdate');
+        }
+        if (_userGender != null) {
+          await prefs.setString('userGender', _userGender!);
+        } else {
+          await prefs.remove('userGender');
+        }
+
+        notifyListeners();
+      }
+    } catch (_) {
+      // Silently ignore; UI will keep previous data
+    }
+  }
 }
