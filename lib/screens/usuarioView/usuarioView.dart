@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert'; // Import for JSON
@@ -190,7 +191,9 @@ class _UsuarioViewState extends State<UsuarioView> {
                 Row(
                   children: [
                     _ProfileAvatar(
-                      imageUrl: userProvider.userPhotoUrl,
+                      imageUrl:
+                          userProvider.cacheBustedPhotoUrl ?? userProvider.userPhotoUrl,
+                      cachedPhotoBytes: userProvider.userPhotoCache,
                       isDarkMode: isDarkMode,
                     ),
                     const SizedBox(width: 20),
@@ -713,17 +716,25 @@ class _UsuarioViewState extends State<UsuarioView> {
 // --- Profile Avatar ---
 class _ProfileAvatar extends StatelessWidget {
   final String? imageUrl;
+  final Uint8List? cachedPhotoBytes;
   final bool isDarkMode;
 
   const _ProfileAvatar({
     Key? key,
     required this.imageUrl,
+    required this.cachedPhotoBytes,
     required this.isDarkMode,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
+    ImageProvider? photoProvider;
+    if (cachedPhotoBytes != null && cachedPhotoBytes!.isNotEmpty) {
+      photoProvider = MemoryImage(cachedPhotoBytes!);
+    } else if (imageUrl != null && imageUrl!.isNotEmpty) {
+      photoProvider = NetworkImage(imageUrl!);
+    }
+    final hasImage = photoProvider != null;
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -740,7 +751,7 @@ class _ProfileAvatar extends StatelessWidget {
       child: CircleAvatar(
         radius: 42,
         backgroundColor: AppColors.backgroundLight,
-        backgroundImage: hasImage ? NetworkImage(imageUrl!) : null,
+        backgroundImage: photoProvider,
         child: hasImage
             ? null
             : Icon(

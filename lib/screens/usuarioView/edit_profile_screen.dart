@@ -301,6 +301,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (!mounted) return;
       if (streamed.statusCode == 200 || streamed.statusCode == 201) {
+        final newPhotoBytes =
+            _selectedImage != null ? await _selectedImage!.readAsBytes() : null;
         await userProvider.updateUserData(
           nombreCompleto: body['nombreCompleto'],
           correo: body['correo'],
@@ -310,6 +312,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           genero: body['genero'],
         );
         await userProvider.refreshUserFromApi();
+        if (newPhotoBytes != null) {
+          await userProvider.setUserPhotoCache(newPhotoBytes);
+        }
         if (mounted) {
           setState(() {
             // Clear local selection after successful upload so avatar uses refreshed URL
@@ -428,6 +433,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     ImageProvider? imageProvider;
     if (_selectedImage != null) {
       imageProvider = FileImage(_selectedImage!);
+    } else if (userProvider.userPhotoCache != null &&
+        userProvider.userPhotoCache!.isNotEmpty) {
+      imageProvider = MemoryImage(userProvider.userPhotoCache!);
     } else if (userProvider.userPhotoUrl != null &&
         userProvider.userPhotoUrl!.isNotEmpty) {
       imageProvider = NetworkImage(userProvider.userPhotoUrl!);
@@ -515,10 +523,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final ImageProvider fallbackImage = const NetworkImage(
       'https://www.jreventos.com.ar/uploads/servicio-imagen/big/af332f5af35068cd6a8935e65c7f0a5c.jpeg',
     );
-    final ImageProvider oldImage = (userProvider.userPhotoUrl?.isNotEmpty ==
-            true)
-        ? NetworkImage(userProvider.userPhotoUrl!)
-        : fallbackImage;
+    final ImageProvider oldImage =
+        (userProvider.userPhotoCache != null && userProvider.userPhotoCache!.isNotEmpty)
+            ? MemoryImage(userProvider.userPhotoCache!)
+            : (userProvider.userPhotoUrl?.isNotEmpty == true
+                ? NetworkImage(userProvider.userPhotoUrl!)
+                : fallbackImage);
     final ImageProvider? newImage =
         _selectedImage != null ? FileImage(_selectedImage!) : null;
 

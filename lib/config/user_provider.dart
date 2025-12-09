@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,6 +17,8 @@ class UserProvider with ChangeNotifier {
   String? _userBirthdate;
   String? _userGender;
   bool _isLoading = false;
+  Uint8List? _userPhotoCache;
+  int _photoCacheVersion = 0;
 
   // --- SUPPLIER MODE (Added) ---
   bool _isSupplierMode = false;
@@ -32,6 +35,17 @@ class UserProvider with ChangeNotifier {
   String? get userGender => _userGender;
   bool get isLoading => _isLoading;
   bool get isSupplierMode => _isSupplierMode;
+  Uint8List? get userPhotoCache => _userPhotoCache;
+  int get photoCacheVersion => _photoCacheVersion;
+
+  /// Devuelve la URL con un query param para forzar la recarga cuando haya
+  /// cambios locales en la imagen.
+  String? get cacheBustedPhotoUrl {
+    if (_userPhotoUrl == null || _userPhotoUrl!.isEmpty) return _userPhotoUrl;
+    if (_photoCacheVersion == 0) return _userPhotoUrl;
+    final separator = _userPhotoUrl!.contains('?') ? '&' : '?';
+    return '${_userPhotoUrl!}${separator}v=$_photoCacheVersion';
+  }
 
   UserProvider() {
     loadUserFromPrefs();
@@ -50,6 +64,15 @@ class UserProvider with ChangeNotifier {
     _userUsername = prefs.getString('userUsername');
     _userBirthdate = prefs.getString('userBirthdate');
     _userGender = prefs.getString('userGender');
+    _photoCacheVersion = prefs.getInt('userPhotoCacheVersion') ?? 0;
+    final cachedPhotoString = prefs.getString('userPhotoCache');
+    if (cachedPhotoString != null) {
+      try {
+        _userPhotoCache = base64Decode(cachedPhotoString);
+      } catch (_) {
+        _userPhotoCache = null;
+      }
+    }
 
     // Load Supplier Mode
     _isSupplierMode = prefs.getBool('isSupplierMode') ?? false;
@@ -134,6 +157,10 @@ class UserProvider with ChangeNotifier {
         } else {
           await prefs.remove('userGender');
         }
+        await prefs.remove('userPhotoCache');
+        await prefs.remove('userPhotoCacheVersion');
+        _userPhotoCache = null;
+        _photoCacheVersion = 0;
 
         // IMPORTANT: Set 'isLoggedIn' for main.dart compatibility
         await prefs.setBool('isLoggedIn', true);
@@ -214,6 +241,8 @@ class UserProvider with ChangeNotifier {
     _userBirthdate = null;
     _userGender = null;
     _isSupplierMode = false; // Reset mode on logout
+    _userPhotoCache = null;
+    _photoCacheVersion = 0; // Reset cache buster
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userId');
@@ -225,6 +254,8 @@ class UserProvider with ChangeNotifier {
     await prefs.remove('userUsername');
     await prefs.remove('userBirthdate');
     await prefs.remove('userGender');
+    await prefs.remove('userPhotoCache');
+    await prefs.remove('userPhotoCacheVersion');
     await prefs.setBool('isSupplierMode', false);
     await prefs.setBool('isLoggedIn', false); // Update auth state
 
@@ -300,5 +331,20 @@ class UserProvider with ChangeNotifier {
     } catch (_) {
       // Silently ignore; UI will keep previous data
     }
+  }
+
+  Future<void> setUserPhotoCache(Uint8List? bytes) async {
+    _userPhotoCache = bytes;
+    final prefs = await SharedPreferences.getInstance();
+    if (bytes != null) {
+      _photoCacheVersion = DateTime.now().millisecondsSinceEpoch;
+      await prefs.setString('userPhotoCache', base64Encode(bytes));
+      await prefs.setInt('userPhotoCacheVersion', _photoCacheVersion);
+    } else {
+      _photoCacheVersion = 0;
+      await prefs.remove('userPhotoCache');
+      await prefs.remove('userPhotoCacheVersion');
+    }
+    notifyListeners();
   }
 }
