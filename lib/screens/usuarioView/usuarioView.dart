@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert'; // Import for JSON
 import 'package:http/http.dart' as http; // Import for API calls
@@ -8,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/theme_provider.dart';
 import '../../config/user_provider.dart';
 import '../../config/appColors.dart';
+import '../../config/api_config.dart';
 import 'edit_profile_screen.dart';
 import '../../screens/welcomeView/welcome_screen.dart';
 import '../usuarioView/recent_deals_screen.dart';
@@ -29,7 +31,6 @@ class UsuarioView extends StatefulWidget {
 class _UsuarioViewState extends State<UsuarioView> {
   final ScrollController _scrollController = ScrollController();
   final MyServicesService _myServicesService = MyServicesService();
-
   bool _isLoadingMyServices = false;
   String? _myServicesError;
   List<ServiceCardData> _myServices = [];
@@ -125,7 +126,8 @@ class _UsuarioViewState extends State<UsuarioView> {
     });
 
     try {
-      final url = Uri.parse('http://localhost:8080/api/estadisticas/$userId');
+      final url = Uri.parse('${ApiConfig.baseUrl}/estadisticas/$userId');
+      // final url = envUrl + Uri.parse('http://localhost:8080/api/estadisticas/$userId');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
