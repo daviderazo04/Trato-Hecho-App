@@ -149,7 +149,8 @@ class _RecentDealsScreenState extends State<RecentDealsScreen>
         '${_fmtDate(item.fechaInicio)} • ${_fmtHour(item.fechaInicio)} - ${_fmtHour(item.fechaFin)}';
     final badgeColor =
         isCompra ? AppColors.primary : AppColors.notificacion;
-    final canReview = isCompra && item.finalizado;
+    final alreadyRated = isCompra && item.yaCalificado;
+    final canReview = isCompra && item.finalizado && !item.yaCalificado;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -252,7 +253,9 @@ class _RecentDealsScreenState extends State<RecentDealsScreen>
                   color: isDarkMode ? Colors.white : AppColors.primary,
                 ),
               ),
-              if (canReview)
+              if (alreadyRated)
+                _buildRatedBadge(item.miNota ?? 0, isDarkMode)
+              else if (canReview)
                 TextButton.icon(
                   onPressed: () => _goToReview(item),
                   icon: const Icon(Icons.star_border, color: AppColors.amber),
@@ -274,6 +277,53 @@ class _RecentDealsScreenState extends State<RecentDealsScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRatedBadge(int nota, bool isDarkMode) {
+    final textColor =
+        isDarkMode ? Colors.white : AppColors.textSecondary;
+    final ratingText = nota > 0 ? '$nota/5' : 'N/A';
+
+    return Row(
+      children: [
+        Text(
+          'Ya calificado',
+          style: TextStyle(
+            color: textColor,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.amber.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: AppColors.amber.withOpacity(0.6),
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.star,
+                color: AppColors.amber,
+                size: 16,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                ratingText,
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

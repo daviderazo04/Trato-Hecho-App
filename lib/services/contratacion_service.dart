@@ -205,6 +205,8 @@ class ContratoItem {
     required this.contraparteNombre,
     required this.contraparteFoto,
     required this.contraparteRolEnTransaccion,
+    required this.yaCalificado,
+    required this.miNota,
     required this.servicio,
   });
 
@@ -215,6 +217,8 @@ class ContratoItem {
   final String contraparteNombre;
   final String? contraparteFoto;
   final String contraparteRolEnTransaccion; // VENDEDOR o COMPRADOR
+  final bool yaCalificado;
+  final int? miNota;
   final ContratoServicioInfo servicio;
 
   factory ContratoItem.fromJson(Map<String, dynamic> json) {
@@ -229,6 +233,8 @@ class ContratoItem {
       contraparteFoto: json['contraparteFoto'] as String?,
       contraparteRolEnTransaccion:
           json['contraparteRolEnTransaccion'] as String? ?? '',
+      yaCalificado: json['yaCalificado'] == true,
+      miNota: (json['miNota'] as num?)?.toInt(),
       servicio: ContratoServicioInfo.fromJson(
           (json['servicio'] as Map<String, dynamic>? ?? {})),
     );
