@@ -13,6 +13,7 @@ import '../../services/my_services_service.dart';
 import '../../services/services_cache.dart';
 import '../homeView/home_screen.dart' show ServiceCardData;
 import '../homeView/service_detail_screen.dart';
+import '../auth/login_screen.dart';
 
 // Fixed categories list (use these instead of deriving from services)
 const List<String> _fixedCategories = [
@@ -272,37 +273,62 @@ class _SearchScreenState extends State<SearchScreen> {
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final userId = userProvider.userId;
+
+    final isFav = _favoriteServiceIds.contains(serviceId);
+    final target = desiredState ?? !isFav;
     if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Debes iniciar sesión para guardar favoritos')),
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LoginScreen(
+            onAuthenticated: () async {
+              final newUserId =
+                  Provider.of<UserProvider>(context, listen: false).userId;
+              if (newUserId != null && mounted) {
+                await _fetchServices();
+                if (!mounted) return;
+                await _toggleFavorite(service, context, desiredState: target);
+              }
+            },
+          ),
+        ),
       );
       return false;
     }
 
-    final isFav = _favoriteServiceIds.contains(serviceId);
-    final target = desiredState ?? !isFav;
     if (target == isFav) return true;
 
     if (target) {
-      _safeSetState(() => _favoriteServiceIds.add(serviceId));
+      _safeSetState(() {
+        _favoriteServiceIds.add(serviceId);
+        service.esFavorito = true;
+      });
       final success = await _favoritesService.addFavorite(
           userId: userId, serviceId: serviceId);
       if (!success) {
-        _safeSetState(() => _favoriteServiceIds.remove(serviceId));
+        _safeSetState(() {
+          _favoriteServiceIds.remove(serviceId);
+          service.esFavorito = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No se pudo agregar a favoritos')),
         );
       }
       return success;
     } else {
-      _safeSetState(() => _favoriteServiceIds.remove(serviceId));
+      _safeSetState(() {
+        _favoriteServiceIds.remove(serviceId);
+        service.esFavorito = false;
+      });
       // also notify backend
       final success = await _favoritesService.removeFavorite(
           userId: userId, serviceId: serviceId);
       if (!success) {
         // rollback locally if server failed
-        _safeSetState(() => _favoriteServiceIds.add(serviceId));
+        _safeSetState(() {
+          _favoriteServiceIds.add(serviceId);
+          service.esFavorito = true;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No se pudo quitar de favoritos')),
         );

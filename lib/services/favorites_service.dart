@@ -20,7 +20,11 @@ class FavoritesService {
         }),
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      // Consideramos 409/400 como ya-favorito (idempotente)
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 400 ||
+          response.statusCode == 409) {
         return true;
       }
       return false;

@@ -211,8 +211,22 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   }
 
   Future<void> _toggleFavorite() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final bool desiredState = !_isFavorite;
+
+    final isLogged = _redirectToLoginIfNeeded(
+      userProvider,
+      themeProvider,
+      onAuthenticated: () async {
+        if (!mounted) return;
+        await _toggleFavorite();
+      },
+    );
+    if (!isLogged) return;
+
     setState(() {
-      _isFavorite = !_isFavorite;
+      _isFavorite = desiredState;
     });
 
     if (widget.onFavoriteToggle != null) {
@@ -223,8 +237,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   bool _redirectToLoginIfNeeded(
       UserProvider userProvider, ThemeProvider themeProvider,
       {VoidCallback? onAuthenticated}) {
-    final bool isLoggedIn =
-        userProvider.userId != null && themeProvider.isLoggedIn;
+    final bool isLoggedIn = userProvider.userId != null;
     if (!isLoggedIn) {
       Navigator.push(
         context,

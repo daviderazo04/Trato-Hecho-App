@@ -146,12 +146,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Usamos replaceAll por si acaso, o directo ApiConfig.registro si existiera
       // Asumimos ApiConfig.login existe y transformamos la URL
       final url = Uri.parse(ApiConfig.login.replaceAll('login', 'registro'));
-      
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
-      );
+
+      // El backend ahora espera form-data con el campo "usuario" como JSON string
+      final request = http.MultipartRequest('POST', url);
+      request.fields['usuario'] = jsonEncode(body);
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      // Debug: log backend response for registration
+      // ignore: avoid_print
+      print('Registro resp ${response.statusCode}: ${utf8.decode(response.bodyBytes)}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         _showFeedback(
@@ -160,12 +163,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
         await Future.delayed(const Duration(milliseconds: 2000));
         if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-                builder: (_) =>
-                    LoginScreen(onAuthenticated: widget.onAuthenticated)),
-          );
+          // Regresamos a la pantalla anterior (normalmente Login) para evitar
+          // apilar múltiples pantallas de login y pedir credenciales dos veces.
+          Navigator.pop(context);
         }
       } else {
         _showFeedback(

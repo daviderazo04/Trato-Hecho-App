@@ -12,6 +12,7 @@ import '../../config/user_provider.dart';
 import '../../services/favorites_service.dart';
 import '../../services/my_services_service.dart';
 import '../../services/services_cache.dart';
+import '../auth/login_screen.dart';
 
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({super.key});
@@ -234,6 +235,18 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     return [...withoutId, ...byId.values];
   }
 
+  void _setFavoriteState(int serviceId, bool isFavorite) {
+    setState(() {
+      for (final list in [_services, _filteredServices, _visibleServices]) {
+        for (final s in list) {
+          if (s.id == serviceId) {
+            s.esFavorito = isFavorite;
+          }
+        }
+      }
+    });
+  }
+
   void _selectCategory(String category) {
     setState(() {
       if (_selectedCategory == category) {
@@ -288,30 +301,42 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     });
   }
 
-  Future<void> _toggleFavorite(ServiceCardData service) async {
+  Future<void> _toggleFavorite(ServiceCardData service,
+      {bool? desiredState}) async {
     final int? serviceId = service.id;
     if (serviceId == null) return;
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final userId = userProvider.userId;
 
+    final bool targetState = desiredState ?? !service.esFavorito;
+
     if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Debes iniciar sesión para guardar favoritos')),
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LoginScreen(
+            onAuthenticated: () async {
+              final newUserId =
+                  Provider.of<UserProvider>(context, listen: false).userId;
+              if (newUserId != null && mounted) {
+                await _fetchServices();
+                if (mounted) {
+                  await _toggleFavorite(service,
+                      desiredState: targetState);
+                }
+              }
+            },
+          ),
+        ),
       );
       return;
     }
 
-    final bool isCurrentlyFavorite = service.esFavorito;
-    final bool desiredState = !isCurrentlyFavorite;
-
-    setState(() {
-      service.esFavorito = desiredState;
-    });
+    _setFavoriteState(serviceId, targetState);
 
     bool success;
-    if (desiredState) {
+    if (targetState) {
       success = await _favoritesService.addFavorite(
         userId: userId,
         serviceId: serviceId,
@@ -324,13 +349,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
 
     if (!success) {
-      setState(() {
-        service.esFavorito = isCurrentlyFavorite;
-      });
+      _setFavoriteState(serviceId, !targetState);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'No se pudo ${desiredState ? 'agregar a' : 'quitar de'} favoritos',
+            'No se pudo ${targetState ? 'agregar a' : 'quitar de'} favoritos',
           ),
         ),
       );

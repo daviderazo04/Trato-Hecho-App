@@ -19,6 +19,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   bool _isLoading = true;
   String? _error;
   List<ServiceCardData> _favorites = [];
+  bool _updatingFavorite = false;
 
   @override
   void initState() {
@@ -351,15 +352,53 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
   }
 
-  void _openDetail(ServiceCardData data) {
-    Navigator.push(
+  Future<void> _openDetail(ServiceCardData data) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ServiceDetailScreen(
           data: data,
-          isFavorite: true,
+          isFavorite: data.esFavorito,
+          onFavoriteToggle: () => _toggleFavoriteFromDetail(data),
         ),
       ),
     );
+    if (mounted) {
+      await _loadFavorites(); // refrescar listado al volver
+    }
+  }
+
+  Future<void> _toggleFavoriteFromDetail(ServiceCardData data) async {
+    if (_updatingFavorite) return;
+    final userId = Provider.of<UserProvider>(context, listen: false).userId;
+    final serviceId = data.id;
+    if (userId == null || serviceId == null) return;
+
+    final bool target = !data.esFavorito;
+    setState(() {
+      _updatingFavorite = true;
+      data.esFavorito = target;
+    });
+
+    bool success;
+    if (target) {
+      success = await _favoritesService.addFavorite(
+          userId: userId, serviceId: serviceId);
+    } else {
+      success = await _favoritesService.removeFavorite(
+          userId: userId, serviceId: serviceId);
+    }
+
+    if (!success && mounted) {
+      setState(() {
+        data.esFavorito = !target; // revertir local si falló
+      });
+    }
+
+    if (mounted) {
+      setState(() {
+        _updatingFavorite = false;
+      });
+    }
   }
 }
