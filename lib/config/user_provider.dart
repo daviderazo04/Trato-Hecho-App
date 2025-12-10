@@ -169,9 +169,21 @@ class UserProvider with ChangeNotifier {
         notifyListeners();
         return {'success': true, 'message': 'Login exitoso'};
       } else {
+        String message = 'Credenciales incorrectas';
+        try {
+          final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+          if (errorBody is Map<String, dynamic>) {
+            final backendMessage = errorBody['mensaje'] ?? errorBody['message'];
+            if (backendMessage is String && backendMessage.trim().isNotEmpty) {
+              message = backendMessage;
+            }
+          }
+        } catch (_) {
+          // Si no se puede parsear, usamos el mensaje por defecto
+        }
         _isLoading = false;
         notifyListeners();
-        return {'success': false, 'message': 'Credenciales incorrectas'};
+        return {'success': false, 'message': message};
       }
     } catch (e) {
       _isLoading = false;

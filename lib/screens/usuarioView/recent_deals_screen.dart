@@ -177,13 +177,21 @@ class _RecentDealsScreenState extends State<RecentDealsScreen>
             children: [
               CircleAvatar(
                 radius: 26,
-                backgroundImage: item.contraparteFoto != null
-                    ? NetworkImage(item.contraparteFoto!)
-                    : null,
+                backgroundImage: isCompra
+                    ? (item.servicio.imagen != null
+                        ? NetworkImage(item.servicio.imagen!)
+                        : null)
+                    : (item.contraparteFoto != null
+                        ? NetworkImage(item.contraparteFoto!)
+                        : null),
                 backgroundColor:
-                    item.contraparteFoto == null ? Colors.grey[300] : null,
-                child: item.contraparteFoto == null
-                    ? const Icon(Icons.person, color: AppColors.primary)
+                    (isCompra && item.servicio.imagen == null) ||
+                            (!isCompra && item.contraparteFoto == null)
+                        ? Colors.grey[300]
+                        : null,
+                child: (isCompra && item.servicio.imagen == null) ||
+                        (!isCompra && item.contraparteFoto == null)
+                    ? const Icon(Icons.image, color: AppColors.primary)
                     : null,
               ),
               const SizedBox(width: 12),
