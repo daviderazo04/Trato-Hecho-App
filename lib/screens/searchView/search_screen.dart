@@ -54,6 +54,7 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _onlyWithMedia = false;
   bool _hideUnrated = false;
   String _sortOption = 'relevance';
+  bool _filtersExpanded = false;
 
   bool _isLoading = true;
   String? _error;
@@ -73,8 +74,14 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    setState(fn);
+  }
+
   Future<void> _fetchServices() async {
-    setState(() {
+    if (!mounted) return;
+    _safeSetState(() {
       _isLoading = true;
       _error = null;
     });
@@ -87,7 +94,7 @@ class _SearchScreenState extends State<SearchScreen> {
     final cachedServices =
         cachedRaw.map((item) => ServiceCardData.fromJson(item)).toList();
     if (mounted && cachedServices.isNotEmpty) {
-      setState(() {
+      _safeSetState(() {
         _services = cachedServices;
         _favoriteServiceIds
           ..clear()
@@ -129,7 +136,7 @@ class _SearchScreenState extends State<SearchScreen> {
           services = _mergeServices(services, ownServices);
         }
 
-        setState(() {
+        _safeSetState(() {
           _services = services;
           // populate favorite ids from the loaded services (API returns `esFavorito`)
           _favoriteServiceIds.clear();
@@ -148,7 +155,7 @@ class _SearchScreenState extends State<SearchScreen> {
         await _servicesCache
             .saveRaw(services.map((s) => s.toJson()).toList(), userId);
       } else {
-        setState(() {
+        _safeSetState(() {
           if (_services.isEmpty) {
             _error =
                 'No se pudieron cargar los servicios (${response.statusCode})';
@@ -156,14 +163,14 @@ class _SearchScreenState extends State<SearchScreen> {
         });
       }
     } catch (e) {
-      setState(() {
+      _safeSetState(() {
         if (_services.isEmpty) {
           _error = 'Error de conexión. Inténtalo de nuevo.';
         }
       });
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        _safeSetState(() => _isLoading = false);
       }
     }
   }
@@ -232,11 +239,11 @@ class _SearchScreenState extends State<SearchScreen> {
       }
     });
 
-    setState(() => _filtered = temp);
+    _safeSetState(() => _filtered = temp);
   }
 
   void _toggleCategory(String category) {
-    setState(() {
+    _safeSetState(() {
       if (_selectedCategories.contains(category)) {
         _selectedCategories.remove(category);
       } else {
@@ -247,7 +254,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _resetFilters() {
-    setState(() {
+    _safeSetState(() {
       _selectedCategories.clear();
       _onlyWithMedia = false;
       _hideUnrated = false;
@@ -278,24 +285,24 @@ class _SearchScreenState extends State<SearchScreen> {
     if (target == isFav) return true;
 
     if (target) {
-      setState(() => _favoriteServiceIds.add(serviceId));
+      _safeSetState(() => _favoriteServiceIds.add(serviceId));
       final success = await _favoritesService.addFavorite(
           userId: userId, serviceId: serviceId);
       if (!success) {
-        setState(() => _favoriteServiceIds.remove(serviceId));
+        _safeSetState(() => _favoriteServiceIds.remove(serviceId));
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No se pudo agregar a favoritos')),
         );
       }
       return success;
     } else {
-      setState(() => _favoriteServiceIds.remove(serviceId));
+      _safeSetState(() => _favoriteServiceIds.remove(serviceId));
       // also notify backend
       final success = await _favoritesService.removeFavorite(
           userId: userId, serviceId: serviceId);
       if (!success) {
         // rollback locally if server failed
-        setState(() => _favoriteServiceIds.add(serviceId));
+        _safeSetState(() => _favoriteServiceIds.add(serviceId));
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No se pudo quitar de favoritos')),
         );
@@ -306,10 +313,10 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildHeader(bool isDark) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -347,12 +354,12 @@ class _SearchScreenState extends State<SearchScreen> {
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -363,17 +370,17 @@ class _SearchScreenState extends State<SearchScreen> {
                 prefixIcon: const Icon(Icons.search, color: AppColors.primary),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Colors.transparent),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Colors.transparent),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   borderSide:
                       const BorderSide(color: AppColors.accent, width: 2),
                 ),
@@ -387,23 +394,23 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildFiltersCard(bool isDark) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? AppColors.darkButtons : const Color(0xFFF7FBFF),
-          borderRadius: BorderRadius.circular(18),
+          color: isDark ? AppColors.darkButtons : const Color(0xFFF9FCFF),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
               color: (isDark ? AppColors.darkBorders : AppColors.primary)
                   .withOpacity(0.08)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -423,40 +430,75 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                 ),
                 const Spacer(),
-                TextButton.icon(
-                  onPressed: _resetFilters,
-                  icon: Icon(
-                    Icons.refresh,
-                    size: 18,
-                    color: isDark ? Colors.white : AppColors.primary,
-                  ),
-                  label: Text(
-                    'Limpiar',
-                    style: TextStyle(
+                if (_filtersExpanded)
+                  TextButton.icon(
+                    onPressed: _resetFilters,
+                    icon: Icon(
+                      Icons.refresh,
+                      size: 18,
                       color: isDark ? Colors.white : AppColors.primary,
-                      fontWeight: FontWeight.w600,
+                    ),
+                    label: Text(
+                      'Limpiar',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      side: BorderSide(
+                        color: isDark ? Colors.white : AppColors.primary,
+                        width: 1.2,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
-                  style: TextButton.styleFrom(
-                    side: BorderSide(
-                      color: isDark ? Colors.white : AppColors.primary,
-                      width: 1.2,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
               ],
             ),
-            const SizedBox(height: 12),
-            _buildCategories(isDark),
-            const SizedBox(height: 12),
-            _buildPriceSlider(_priceRange, isDark),
-            const SizedBox(height: 12),
-            _buildToggles(),
-            const SizedBox(height: 12),
-            _buildSortSelector(isDark),
+            const SizedBox(height: 6),
+            Center(
+              child: TextButton.icon(
+                onPressed: () =>
+                    _safeSetState(() => _filtersExpanded = !_filtersExpanded),
+                icon: Icon(
+                  _filtersExpanded
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  color: isDark ? Colors.white : AppColors.primary,
+                ),
+                label: Text(
+                  _filtersExpanded
+                      ? 'Ocultar filtros'
+                      : 'Mostrar todos los filtros',
+                  style: TextStyle(
+                    color: isDark ? Colors.white : AppColors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 6),
+                  _buildCategories(isDark),
+                  const SizedBox(height: 8),
+                  _buildPriceSlider(_priceRange, isDark),
+                  const SizedBox(height: 8),
+                  _buildToggles(),
+                  const SizedBox(height: 8),
+                  _buildSortSelector(isDark),
+                ],
+              ),
+              crossFadeState: _filtersExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 220),
+            ),
           ],
         ),
       ),
@@ -468,7 +510,7 @@ class _SearchScreenState extends State<SearchScreen> {
       return const SizedBox.shrink();
     }
     final List<String> previewCategories =
-        _availableCategories.take(6).toList();
+        _availableCategories.take(4).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -502,8 +544,8 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
         const SizedBox(height: 8),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 6,
+          runSpacing: 6,
           children: previewCategories
               .map((category) => _buildCategoryChip(
                     label: category,
@@ -616,7 +658,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                 onPressed: () {
                                   tempSelected.clear();
                                   modalSetState(() {});
-                                  setState(() {
+                                  _safeSetState(() {
                                     _selectedCategories.clear();
                                   });
                                   _applyFilters();
@@ -639,7 +681,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () {
-                                  setState(() {
+                                  _safeSetState(() {
                                     _selectedCategories = tempSelected;
                                   });
                                   _applyFilters();
@@ -695,7 +737,7 @@ class _SearchScreenState extends State<SearchScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(20),
@@ -719,7 +761,7 @@ class _SearchScreenState extends State<SearchScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _FilterLabel('Precio', isDark: isDark),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -739,7 +781,7 @@ class _SearchScreenState extends State<SearchScreen> {
             '\$${range.end.toStringAsFixed(0)}',
           ),
           onChanged: (values) {
-            setState(() {
+            _safeSetState(() {
               _priceRange = values;
             });
             _applyFilters();
@@ -751,14 +793,14 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildToggles() {
     return Wrap(
-      spacing: 12,
-      runSpacing: 8,
+      spacing: 10,
+      runSpacing: 6,
       children: [
         FilterChip(
           label: const Text('Solo con fotos/video'),
           selected: _onlyWithMedia,
           onSelected: (value) {
-            setState(() => _onlyWithMedia = value);
+            _safeSetState(() => _onlyWithMedia = value);
             _applyFilters();
           },
           selectedColor: AppColors.secondary.withOpacity(0.18),
@@ -778,7 +820,7 @@ class _SearchScreenState extends State<SearchScreen> {
           label: const Text('Ocultar sin calificaciones'),
           selected: _hideUnrated,
           onSelected: (value) {
-            setState(() => _hideUnrated = value);
+            _safeSetState(() => _hideUnrated = value);
             _applyFilters();
           },
           selectedColor: AppColors.secondary.withOpacity(0.18),
@@ -803,7 +845,7 @@ class _SearchScreenState extends State<SearchScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _FilterLabel('Ordenar por', isDark: isDark),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           value: _sortOption,
           isDense: false,
@@ -894,7 +936,7 @@ class _SearchScreenState extends State<SearchScreen> {
           },
           onChanged: (value) {
             if (value == null) return;
-            setState(() => _sortOption = value);
+            _safeSetState(() => _sortOption = value);
             _applyFilters();
           },
         ),
@@ -993,12 +1035,12 @@ class _SearchScreenState extends State<SearchScreen> {
         child: RefreshIndicator(
           onRefresh: _fetchServices,
           child: ListView(
-            padding: const EdgeInsets.only(bottom: 24),
+            padding: const EdgeInsets.only(bottom: 16),
             children: [
               _buildHeader(isDark),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _buildFiltersCard(isDark),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _buildResults(isDark),
             ],
           ),
