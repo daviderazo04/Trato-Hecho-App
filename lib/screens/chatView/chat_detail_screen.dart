@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_provider.dart';
@@ -38,6 +39,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final ChatService _chatService = ChatService();
   final _textController = TextEditingController();
   final ScrollController _listController = ScrollController();
+  Timer? _refreshTimer;
+  bool _isRefreshing = false;
+  int? _lastServerMessageId;
+  int _lastServerMessageCount = 0;
 
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
@@ -96,13 +101,83 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           _messages = msgs;
           _isLoading = false;
           _currentServiceId = _currentServiceId ?? firstServiceId;
+          _lastServerMessageId = _getLastServerMessageId(msgs);
+          _lastServerMessageCount = msgs.length;
         });
         _scrollToBottom();
+        _startAutoRefreshIfNeeded();
       }
     } catch (e) {
       print("Error history: $e");
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _refreshMessages() async {
+    if (_isRefreshing || _currentConId == null) return;
+    final myUserId = Provider.of<UserProvider>(context, listen: false).userId;
+    if (myUserId == null) return;
+
+    _isRefreshing = true;
+    try {
+      final msgs = await _chatService.getHistory(_currentConId!, myUserId);
+      if (!mounted) return;
+
+      int? firstServiceId;
+      if (_currentServiceId == null) {
+        for (final m in msgs) {
+          if (m.serviceId != null && m.serviceId! > 0) {
+            firstServiceId = m.serviceId;
+            break;
+          }
+        }
+      }
+
+      final newLastId = _getLastServerMessageId(msgs);
+      final bool hasNewFromServer = newLastId != null &&
+          (newLastId != _lastServerMessageId ||
+              msgs.length != _lastServerMessageCount);
+
+      final merged = _mergeWithPending(msgs);
+
+      setState(() {
+        _messages = merged;
+        _lastServerMessageId = newLastId ?? _lastServerMessageId;
+        _lastServerMessageCount = msgs.length;
+        _isLoading = false;
+        _currentServiceId = _currentServiceId ?? firstServiceId;
+      });
+
+      if (hasNewFromServer) {
+        _scrollToBottom();
+      }
+    } catch (e) {
+      print("Error refreshing messages: $e");
+    } finally {
+      _isRefreshing = false;
+    }
+  }
+
+  void _startAutoRefreshIfNeeded() {
+    if (_refreshTimer != null || _currentConId == null) return;
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _refreshMessages(),
+    );
+  }
+
+  int? _getLastServerMessageId(List<ChatMessage> messages) {
+    for (var i = messages.length - 1; i >= 0; i--) {
+      final id = messages[i].msjId;
+      if (id > 0) return id;
+    }
+    return null;
+  }
+
+  List<ChatMessage> _mergeWithPending(List<ChatMessage> serverMessages) {
+    final pending = _messages.where((m) => m.isPending || m.isFailed).toList();
+    if (pending.isEmpty) return serverMessages;
+    return [...serverMessages, ...pending];
   }
 
   Future<void> _handleSendPressed() async {
@@ -160,6 +235,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             setState(() {
               _currentConId = newConId;
             });
+            _startAutoRefreshIfNeeded();
           }
         }
       } else {
@@ -333,6 +409,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _textController.dispose();
     _listController.dispose();
     super.dispose();

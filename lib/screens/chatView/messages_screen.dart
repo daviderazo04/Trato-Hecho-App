@@ -68,10 +68,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
     try {
       final chats = await _chatService.getInbox(myUserId);
+      final uniqueChats = _dedupeChats(chats);
       
       if (mounted) {
         setState(() {
-          _allChats = chats;
+          _allChats = uniqueChats;
           _filteredChats = _applySearchFilter();
           _isLoading = false;
         });
@@ -97,6 +98,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
   void _checkUnreadStatus() {
     final hasUnread = _allChats.any((chat) => chat.unreadCount > 0);
     widget.onUnreadStatusChanged(hasUnread);
+  }
+
+  List<InboxChat> _dedupeChats(List<InboxChat> chats) {
+    final seen = <int>{};
+    final result = <InboxChat>[];
+    for (final chat in chats) {
+      if (seen.contains(chat.conId)) continue;
+      seen.add(chat.conId);
+      result.add(chat);
+    }
+    return result;
   }
 
   List<InboxChat> _applySearchFilter() {
