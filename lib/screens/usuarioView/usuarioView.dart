@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -40,6 +41,9 @@ class _UsuarioViewState extends State<UsuarioView> {
   int _totalCalificaciones = 0;
   double _promedioGeneral = 0.0;
   bool _isLoadingStats = false;
+  Timer? _reviewTimer;
+  bool _isReviewPolling = false;
+  Map<int, _ReviewSnapshot> _reviewSnapshot = {};
 
   @override
   void initState() {
@@ -51,6 +55,7 @@ class _UsuarioViewState extends State<UsuarioView> {
 
   @override
   void dispose() {
+    _reviewTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -89,6 +94,9 @@ class _UsuarioViewState extends State<UsuarioView> {
     if (savedMode) {
       _loadMyServices();
       _fetchSupplierStats();
+      _startReviewPolling();
+    } else {
+      _stopReviewPolling();
     }
   }
 
@@ -114,6 +122,7 @@ class _UsuarioViewState extends State<UsuarioView> {
       _myServicesError =
           list.isEmpty ? 'No tienes servicios publicados.' : null;
     });
+    _updateReviewSnapshot(list);
   }
 
   // --- API 2: CARGAR ESTADÍSTICAS (New Function) ---
@@ -148,6 +157,106 @@ class _UsuarioViewState extends State<UsuarioView> {
     } catch (e) {
       print("Error fetch stats: $e");
       if (mounted) setState(() => _isLoadingStats = false);
+    }
+  }
+
+  void _startReviewPolling() {
+    _reviewTimer?.cancel();
+    _reviewTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      _checkForNewReviews();
+    });
+  }
+
+  void _stopReviewPolling() {
+    _reviewTimer?.cancel();
+    _reviewTimer = null;
+    _reviewSnapshot = {};
+  }
+
+  Future<void> _checkForNewReviews() async {
+    if (_isReviewPolling) return;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    if (!userProvider.isSupplierMode) return;
+    final userId = userProvider.userId;
+    if (userId == null) return;
+    _isReviewPolling = true;
+
+    try {
+      final services = await _myServicesService.getMyServices(userId);
+      if (!mounted) return;
+
+      _updateReviewSnapshot(services, checkForChanges: true);
+      setState(() {
+        _myServices = services;
+        _myServicesError =
+            services.isEmpty ? 'No tienes servicios publicados.' : null;
+      });
+    } catch (e) {
+      print('Error revisando nuevas reviews: $e');
+    } finally {
+      _isReviewPolling = false;
+    }
+  }
+
+  void _updateReviewSnapshot(List<ServiceCardData> services,
+      {bool checkForChanges = false}) {
+    bool notified = false;
+    final Map<int, _ReviewSnapshot> next = {};
+
+    for (final service in services) {
+      final id = service.id;
+      if (id == null) continue;
+
+      final prev = _reviewSnapshot[id];
+      if (checkForChanges &&
+          !notified &&
+          prev != null &&
+          service.totalRatings > prev.totalRatings) {
+        final double? newScore = _calculateNewReviewScore(
+          currentTotal: service.totalRatings,
+          currentAverage: service.rating,
+          previousTotal: prev.totalRatings,
+          previousAverage: prev.average,
+        );
+        _showReviewSnack(service.title, newScore);
+        notified = true;
+      }
+
+      next[id] = _ReviewSnapshot(
+        totalRatings: service.totalRatings,
+        average: service.rating,
+        serviceName: service.title,
+      );
+    }
+
+    _reviewSnapshot = next;
+  }
+
+  double? _calculateNewReviewScore({
+    required int currentTotal,
+    required double currentAverage,
+    required int previousTotal,
+    required double previousAverage,
+  }) {
+    final int delta = currentTotal - previousTotal;
+    if (delta <= 0) return null;
+    final double diff =
+        (currentAverage * currentTotal) - (previousAverage * previousTotal);
+    if (diff.isNaN || diff.isInfinite) return null;
+    final double score = diff / delta;
+    if (score.isNaN || score.isInfinite) return null;
+    return score.clamp(0.0, 5.0);
+  }
+
+  void _showReviewSnack(String serviceName, double? stars) {
+    final String ratingText =
+        stars != null ? '${stars.toStringAsFixed(1)} estrellas' : 'una nueva review';
+    final snack = SnackBar(
+      content: Text(
+          'Enhorabuena, alguien dejo una review de $ratingText en el servicio "$serviceName".'),
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(snack);
     }
   }
 
@@ -266,6 +375,9 @@ class _UsuarioViewState extends State<UsuarioView> {
                             if (value) {
                               _loadMyServices();
                               _fetchSupplierStats(); // Fetch stats when enabling
+                              _startReviewPolling();
+                            } else {
+                              _stopReviewPolling();
                             }
                           },
                           activeColor: Colors.white,
@@ -367,6 +479,7 @@ class _UsuarioViewState extends State<UsuarioView> {
                       userProvider.setSupplierMode(true);
                       _loadMyServices();
                       _fetchSupplierStats();
+                      _startReviewPolling();
                     },
                     isDarkMode: isDarkMode,
                   ),
@@ -835,4 +948,16 @@ class _ServiceCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ReviewSnapshot {
+  _ReviewSnapshot({
+    required this.totalRatings,
+    required this.average,
+    required this.serviceName,
+  });
+
+  final int totalRatings;
+  final double average;
+  final String serviceName;
 }

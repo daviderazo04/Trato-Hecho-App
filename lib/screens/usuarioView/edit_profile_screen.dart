@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io'; // 1. Import needed for File
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -116,6 +117,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           hint: 'Correo',
                           icon: Icons.email_outlined,
                           isDarkMode: isDarkMode,
+                          keyboardType: TextInputType.emailAddress,
                         ),
                         const SizedBox(height: 15),
                         _buildDropdown(isDarkMode),
@@ -148,6 +150,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           hint: 'Numero de telefono',
                           icon: Icons.phone_outlined,
                           isDarkMode: isDarkMode,
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(10),
+                          ],
+                          maxLength: 10,
                         ),
                         const SizedBox(height: 15),
                         _buildInput(
@@ -155,6 +163,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           hint: 'Nombre de Usuario',
                           icon: Icons.account_circle_outlined,
                           isDarkMode: isDarkMode,
+                          maxLength: 30,
                         ),
                         const SizedBox(height: 30),
                         Row(
@@ -265,6 +274,49 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       return;
     }
 
+    // --- Validaciones ---
+    final email = _correoController.text.trim();
+    if (email.isNotEmpty && !_isValidEmail(email)) {
+      _showMessage('Ingresa un correo válido (debe contener @ y terminar en .com).',
+          isError: true);
+      return;
+    }
+
+    final phone = _telefonoController.text.trim();
+    if (phone.isNotEmpty && !_isValidPhone(phone)) {
+      _showMessage('Ingresa un número de teléfono de 10 dígitos.', isError: true);
+      return;
+    }
+
+    final username = _usuarioController.text.trim();
+    if (username.isNotEmpty && username.length > 30) {
+      _showMessage('El nombre de usuario debe tener máximo 30 caracteres.', isError: true);
+      return;
+    }
+
+    final birthText = _fechaController.text.trim();
+    if (birthText.isNotEmpty) {
+      final birthDate = _parseDate(birthText);
+      if (birthDate == null) {
+        _showMessage('Ingresa una fecha de nacimiento válida (AAAA-MM-DD).',
+            isError: true);
+        return;
+      }
+      if (birthDate.isAfter(DateTime.now())) {
+        _showMessage('La fecha de nacimiento no puede ser futura.', isError: true);
+        return;
+      }
+      final eighteenYearsAgo = DateTime(
+        DateTime.now().year - 18,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
+      if (birthDate.isAfter(eighteenYearsAgo)) {
+        _showMessage('Debes ser mayor de 18 años.', isError: true);
+        return;
+      }
+    }
+
     final String genero = (_generoValue ?? '').toUpperCase();
     final Map<String, String> body = {};
     void addField(String key, String value) {
@@ -357,6 +409,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return raw;
   }
 
+  bool _isValidEmail(String email) {
+    final lower = email.toLowerCase();
+    return lower.contains('@') && lower.contains('.com');
+  }
+
+  bool _isValidPhone(String phone) {
+    return RegExp(r'^[0-9]{10}$').hasMatch(phone);
+  }
+
+  DateTime? _parseDate(String raw) {
+    try {
+      final parts = raw.split('-');
+      if (parts.length != 3) return null;
+      final year = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final day = int.parse(parts[2]);
+      return DateTime(year, month, day);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _pickImage(ImageSource source) async {
     try {
       final picker = ImagePicker();
@@ -439,10 +513,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } else if (userProvider.userPhotoUrl != null &&
         userProvider.userPhotoUrl!.isNotEmpty) {
       imageProvider = NetworkImage(userProvider.userPhotoUrl!);
-    } else {
-      imageProvider = const NetworkImage(
-        'https://www.jreventos.com.ar/uploads/servicio-imagen/big/af332f5af35068cd6a8935e65c7f0a5c.jpeg',
-      );
     }
 
     final displayName = userProvider.userName?.isNotEmpty == true
@@ -472,6 +542,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 radius: 50,
                 backgroundColor: Colors.grey,
                 backgroundImage: imageProvider,
+                child: imageProvider == null
+                    ? Icon(
+                        Icons.person,
+                        size: 48,
+                        color:
+                            isDarkMode ? Colors.white70 : AppColors.textPrimary,
+                      )
+                    : null,
               ),
             ),
 
@@ -520,15 +598,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 // --- 5. NEW IMAGE PICKER MODAL (FIXED OVERFLOW) ---
   void _showImagePickerOptions(BuildContext context, bool isDarkMode) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final ImageProvider fallbackImage = const NetworkImage(
-      'https://www.jreventos.com.ar/uploads/servicio-imagen/big/af332f5af35068cd6a8935e65c7f0a5c.jpeg',
-    );
-    final ImageProvider oldImage =
+    final ImageProvider? oldImage =
         (userProvider.userPhotoCache != null && userProvider.userPhotoCache!.isNotEmpty)
             ? MemoryImage(userProvider.userPhotoCache!)
             : (userProvider.userPhotoUrl?.isNotEmpty == true
                 ? NetworkImage(userProvider.userPhotoUrl!)
-                : fallbackImage);
+                : null);
     final ImageProvider? newImage =
         _selectedImage != null ? FileImage(_selectedImage!) : null;
 
@@ -573,23 +648,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    Column(
-                      children: [
-                        Text(
-                          "Foto anterior",
-                          style: TextStyle(
+                        Column(
+                          children: [
+                            Text(
+                              "Foto anterior",
+                              style: TextStyle(
                             color: isDarkMode ? Colors.white : Colors.black,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        CircleAvatar(
-                          radius: 40,
-                          backgroundColor: Colors.grey,
-                          backgroundImage: oldImage,
+                            const SizedBox(height: 10),
+                            CircleAvatar(
+                              radius: 40,
+                              backgroundColor: Colors.grey,
+                              backgroundImage: oldImage,
+                              child: oldImage == null
+                                  ? Icon(
+                                      Icons.person,
+                                      color: isDarkMode ? Colors.white : Colors.black54,
+                                    )
+                                  : null,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
                     Column(
                       children: [
                         Text(
@@ -712,6 +793,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required IconData icon,
     required bool isDarkMode,
     bool readOnly = false,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    int? maxLength,
     VoidCallback? onTap,
   }) {
     final Color fillColor = isDarkMode ? AppColors.darkButtons : Colors.white;
@@ -733,6 +817,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         controller: controller,
         readOnly: readOnly,
         onTap: onTap,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
+        maxLength: maxLength,
         style: TextStyle(color: textColor),
         decoration: InputDecoration(
           labelText: hint,
@@ -752,6 +839,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: AppColors.primary, width: 2)),
+          counterText: '',
         ),
       ),
     );

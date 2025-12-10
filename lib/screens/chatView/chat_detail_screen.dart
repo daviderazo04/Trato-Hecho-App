@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../../config/theme_provider.dart';
 import '../../config/user_provider.dart';
 import '../../config/appColors.dart';
+import '../../config/api_config.dart';
 import '../../services/chat_service.dart';
 import '../../models/chat_models.dart';
+import '../homeView/home_screen.dart' show ServiceCardData;
+import '../homeView/service_detail_screen.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final int? conId;
@@ -43,11 +48,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isRefreshing = false;
   int? _lastServerMessageId;
   int _lastServerMessageCount = 0;
+  bool _isOpeningService = false;
 
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
   int? _currentConId;
   int? _currentServiceId;
+  bool get _hasService =>
+      (_currentServiceId ?? widget.serviceId) != null &&
+      (_currentServiceId ?? widget.serviceId)! > 0;
 
   @override
   void initState() {
@@ -178,6 +187,64 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final pending = _messages.where((m) => m.isPending || m.isFailed).toList();
     if (pending.isEmpty) return serverMessages;
     return [...serverMessages, ...pending];
+  }
+
+  Future<ServiceCardData?> _fetchServiceData(int serviceId) async {
+    final endpoints = <Uri>[
+      Uri.parse(ApiConfig.servicioPorId(serviceId)),
+      Uri.parse('${ApiConfig.servicios}/$serviceId'),
+    ];
+
+    for (final url in endpoints) {
+      try {
+        final response = await http.get(url);
+        if (response.statusCode == 200) {
+          final body = jsonDecode(utf8.decode(response.bodyBytes));
+          if (body is Map<String, dynamic>) {
+            return ServiceCardData.fromJson(body);
+          }
+        }
+      } catch (e) {
+        print('Error fetching service detail ($url): $e');
+      }
+    }
+    return null;
+  }
+
+  Future<void> _openServiceDetail() async {
+    final serviceId = _currentServiceId ?? widget.serviceId;
+    if (serviceId == null || serviceId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Este chat no tiene un servicio asociado')),
+      );
+      return;
+    }
+    if (_isOpeningService) return;
+    _isOpeningService = true;
+
+    try {
+      final data = await _fetchServiceData(serviceId);
+      if (!mounted) return;
+      if (data != null) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ServiceDetailScreen(
+              data: data,
+              isFavorite: data.esFavorito,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo cargar el detalle del servicio'),
+          ),
+        );
+      }
+    } finally {
+      _isOpeningService = false;
+    }
   }
 
   Future<void> _handleSendPressed() async {
@@ -444,19 +511,25 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ),
             // Allow the title area to take available space and wrap text
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Auto-scrolling horizontal title to avoid overflow
-                  _AutoScrollText(
-                    text: widget.chatName,
-                    style: TextStyle(
-                      color: _textColor(isDarkMode),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Auto-scrolling horizontal title to avoid overflow
+                  GestureDetector(
+                    onTap: _hasService ? _openServiceDetail : null,
+                    behavior: HitTestBehavior.translucent,
+                    child: _AutoScrollText(
+                      text: widget.chatName,
+                      style: TextStyle(
+                        color: _textColor(isDarkMode),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        decoration:
+                            _hasService ? TextDecoration.underline : TextDecoration.none,
+                      ),
+                      pauseDuration: const Duration(milliseconds: 900),
                     ),
-                    pauseDuration: const Duration(milliseconds: 900),
                   ),
                   Text(
                     widget.chatSubtitle,
