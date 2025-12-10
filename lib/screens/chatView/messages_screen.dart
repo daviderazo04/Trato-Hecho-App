@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme_provider.dart';
@@ -22,10 +23,12 @@ class MessagesScreen extends StatefulWidget {
 class _MessagesScreenState extends State<MessagesScreen> {
   final ChatService _chatService = ChatService();
   final _searchController = TextEditingController();
+  Timer? _autoRefreshTimer;
   
   List<InboxChat> _allChats = [];      // Lista original de la API
   List<InboxChat> _filteredChats = []; // Lista filtrada para mostrar
   bool _isLoading = true;
+  bool _isFetching = false;
 
   @override
   void initState() {
@@ -33,21 +36,33 @@ class _MessagesScreenState extends State<MessagesScreen> {
     _searchController.addListener(_filterChats);
     // Cargamos los chats al iniciar
     _loadChats();
+    _startAutoRefresh();
   }
 
   @override
   void dispose() {
+    _autoRefreshTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   // Carga los datos del API
-  Future<void> _loadChats() async {
+  Future<void> _loadChats({bool silent = false}) async {
+    if (_isFetching) return; // evitamos peticiones duplicadas si el timer coincide
+    _isFetching = true;
+
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final myUserId = userProvider.userId;
 
     if (myUserId == null) {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _allChats = [];
+          _filteredChats = [];
+        });
+      }
+      _isFetching = false;
       return;
     }
 
@@ -57,7 +72,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
       if (mounted) {
         setState(() {
           _allChats = chats;
-          _filteredChats = chats;
+          _filteredChats = _applySearchFilter();
           _isLoading = false;
         });
         
@@ -66,8 +81,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
       }
     } catch (e) {
       print("Error cargando inbox: $e");
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && !silent) setState(() => _isLoading = false);
+    } finally {
+      _isFetching = false;
     }
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _loadChats(silent: true);
+    });
   }
 
   void _checkUnreadStatus() {
@@ -75,17 +99,18 @@ class _MessagesScreenState extends State<MessagesScreen> {
     widget.onUnreadStatusChanged(hasUnread);
   }
 
-  void _filterChats() {
+  List<InboxChat> _applySearchFilter() {
     final query = _searchController.text.toLowerCase();
-    if (query.isEmpty) {
-      setState(() => _filteredChats = _allChats);
-    } else {
-      setState(() {
-        _filteredChats = _allChats.where((chat) {
-          return chat.chatName.toLowerCase().contains(query);
-        }).toList();
-      });
-    }
+    if (query.isEmpty) return _allChats;
+    return _allChats.where((chat) {
+      return chat.chatName.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  void _filterChats() {
+    setState(() {
+      _filteredChats = _applySearchFilter();
+    });
   }
 
   // --- HELPERS PARA MODO OSCURO ---
@@ -150,7 +175,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   ? Center(
                       child: CircularProgressIndicator(color: AppColors.primary))
                   : RefreshIndicator(
-                      onRefresh: _loadChats,
+                      onRefresh: () => _loadChats(silent: true),
                       child: _filteredChats.isEmpty
                           ? Center(
                               child: Text(
@@ -189,7 +214,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                       ),
                                     );
                                     // Al volver, recargamos la lista para limpiar notificaciones
-                                    _loadChats();
+                                    _loadChats(silent: true);
                                   },
                                   leading: CircleAvatar(
                                     radius: 28,
