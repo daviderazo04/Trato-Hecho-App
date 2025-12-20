@@ -149,7 +149,7 @@ class _RecentDealsScreenState extends State<RecentDealsScreen>
         '${_fmtDate(item.fechaInicio)} • ${_fmtHour(item.fechaInicio)} - ${_fmtHour(item.fechaFin)}';
     final badgeColor =
         isCompra ? AppColors.primary : AppColors.notificacion;
-    final alreadyRated = isCompra && item.yaCalificado;
+    final alreadyRated = item.yaCalificado;
     final canReview = isCompra && item.finalizado && !item.yaCalificado;
 
     return Container(
