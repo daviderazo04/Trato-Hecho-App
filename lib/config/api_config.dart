@@ -5,7 +5,7 @@ class ApiConfig {
   static String get baseUrl {
     // Verificamos si dotenv está inicializado antes de acceder
     if (dotenv.isInitialized) {
-      final envUrl = dotenv.env['API_BASE_URL'];
+      final envUrl = dotenv.env['API_URL'];
       if (envUrl != null && envUrl.isNotEmpty) {
         return envUrl;
       }
